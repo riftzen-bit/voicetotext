@@ -1,0 +1,265 @@
+/*
+ * VoiceToText Design System
+ * Aesthetic: Studio Monitor - Professional audio equipment elegance
+ * Inspired by: Bang & Olufsen, Braun, Swiss precision instruments
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  /*
+   * Core Palette - Warm Graphite
+   * A refined dark palette with subtle warm undertones
+   */
+  --bg-deep: #0C0B0A;
+  --bg-base: #141311;
+  --bg-raised: #1A1917;
+  --bg-surface: #201E1C;
+  --bg-elevated: #262421;
+  --bg-hover: #2C2A27;
+
+  /*
+   * Accent - Champagne Gold
+   * Refined, warm, understated - like aged brass on audio equipment
+   */
+  --accent: #C4A052;
+  --accent-muted: #9A7F42;
+  --accent-subtle: rgba(196, 160, 82, 0.12);
+  --accent-ghost: rgba(196, 160, 82, 0.06);
+
+  /*
+   * Typography Scale - High Contrast Warm Grays
+   */
+  --text-primary: #F5F3EF;
+  --text-secondary: #A8A5A0;
+  --text-tertiary: #6B6864;
+  --text-muted: #4A4845;
+
+  /*
+   * Semantic Colors - Subtle, Professional
+   */
+  --status-recording: #C75450;
+  --status-recording-subtle: rgba(199, 84, 80, 0.15);
+  --status-recording-glow: rgba(199, 84, 80, 0.4);
+
+  --status-processing: #C4A052;
+  --status-processing-subtle: rgba(196, 160, 82, 0.15);
+
+  --status-success: #5C9A6B;
+  --status-success-subtle: rgba(92, 154, 107, 0.15);
+
+  --status-error: #B54A47;
+  --status-error-subtle: rgba(181, 74, 71, 0.15);
+
+  /*
+   * Borders & Dividers
+   */
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-default: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.12);
+  --border-accent: rgba(196, 160, 82, 0.3);
+
+  /*
+   * Typography
+   * Inter for UI, JetBrains Mono for data/code
+   */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
+
+  /* Type Scale */
+  --text-xs: 0.6875rem;   /* 11px */
+  --text-sm: 0.75rem;     /* 12px */
+  --text-base: 0.8125rem; /* 13px */
+  --text-md: 0.875rem;    /* 14px */
+  --text-lg: 1rem;        /* 16px */
+  --text-xl: 1.25rem;     /* 20px */
+
+  /*
+   * Spacing Scale
+   */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /*
+   * Radii - Subtle, not bubbly
+   */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-full: 9999px;
+
+  /*
+   * Shadows - Subtle depth, not dramatic
+   */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --shadow-inner: inset 0 1px 2px rgba(0, 0, 0, 0.3);
+
+  /* Indicator glow - for the bubble */
+  --glow-idle: 0 0 12px rgba(196, 160, 82, 0.15);
+  --glow-recording: 0 0 20px rgba(199, 84, 80, 0.35);
+  --glow-processing: 0 0 16px rgba(196, 160, 82, 0.25);
+  --glow-success: 0 0 16px rgba(92, 154, 107, 0.3);
+
+  /*
+   * Motion - Precise, mechanical feel
+   */
+  --ease-out: cubic-bezier(0.33, 1, 0.68, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --duration-slow: 400ms;
+}
+
+/* Light mode - system preference */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg-deep: #FAFAF8;
+    --bg-base: #F5F4F2;
+    --bg-raised: #FFFFFF;
+    --bg-surface: #EEEDEB;
+    --bg-elevated: #E8E7E5;
+    --bg-hover: #E0DFDD;
+
+    --text-primary: #1A1918;
+    --text-secondary: #5C5A57;
+    --text-tertiary: #8A8885;
+    --text-muted: #B5B3B0;
+
+    --border-subtle: rgba(0, 0, 0, 0.04);
+    --border-default: rgba(0, 0, 0, 0.08);
+    --border-strong: rgba(0, 0, 0, 0.12);
+
+    --accent-subtle: rgba(196, 160, 82, 0.15);
+    --accent-ghost: rgba(196, 160, 82, 0.08);
+
+    --status-recording-subtle: rgba(199, 84, 80, 0.12);
+    --status-processing-subtle: rgba(196, 160, 82, 0.12);
+    --status-success-subtle: rgba(92, 154, 107, 0.12);
+    --status-error-subtle: rgba(181, 74, 71, 0.12);
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08);
+    --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.12);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.16);
+  }
+}
+
+/* Explicit light theme */
+:root[data-theme="light"] {
+  --bg-deep: #FAFAF8;
+  --bg-base: #F5F4F2;
+  --bg-raised: #FFFFFF;
+  --bg-surface: #EEEDEB;
+  --bg-elevated: #E8E7E5;
+  --bg-hover: #E0DFDD;
+
+  --text-primary: #1A1918;
+  --text-secondary: #5C5A57;
+  --text-tertiary: #8A8885;
+  --text-muted: #B5B3B0;
+
+  --border-subtle: rgba(0, 0, 0, 0.04);
+  --border-default: rgba(0, 0, 0, 0.08);
+  --border-strong: rgba(0, 0, 0, 0.12);
+
+  --accent-subtle: rgba(196, 160, 82, 0.15);
+  --accent-ghost: rgba(196, 160, 82, 0.08);
+
+  --status-recording-subtle: rgba(199, 84, 80, 0.12);
+  --status-processing-subtle: rgba(196, 160, 82, 0.12);
+  --status-success-subtle: rgba(92, 154, 107, 0.12);
+  --status-error-subtle: rgba(181, 74, 71, 0.12);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.12);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.16);
+}
+
+/* Explicit dark theme (default) */
+:root[data-theme="dark"] {
+  --bg-deep: #0C0B0A;
+  --bg-base: #141311;
+  --bg-raised: #1A1917;
+  --bg-surface: #201E1C;
+  --bg-elevated: #262421;
+  --bg-hover: #2C2A27;
+
+  --text-primary: #F5F3EF;
+  --text-secondary: #A8A5A0;
+  --text-tertiary: #6B6864;
+  --text-muted: #4A4845;
+
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-default: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.12);
+}
+
+/*
+ * Base Resets
+ */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: 1.5;
+  color: var(--text-primary);
+  background: transparent;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  user-select: none;
+  overflow: hidden;
+}
+
+/*
+ * Scrollbar - Minimal, refined
+ */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+::selection {
+  background: var(--accent-subtle);
+  color: var(--text-primary);
+}
+
+/* Focus states */
+:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
+button:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}

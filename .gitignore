@@ -1,0 +1,40 @@
+node_modules/
+dist/
+dist-electron/
+release/
+*.log
+
+# Python
+backend/__pycache__/
+backend/*.pyc
+backend/.venv/
+backend/venv/
+*.egg-info/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Temp files
+*.tmp
+*.temp
+
+# Electron builder
+*.blockmap
+*.dmg
+*.AppImage
+*.deb
+*.rpm
+*.exe
+*.msi
+!scripts/*.js

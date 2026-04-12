@@ -1,0 +1,67 @@
+appId: com.voicetotext.app
+productName: VoiceToText
+directories:
+  buildResources: assets
+  output: release
+files:
+  - dist-electron
+  - dist
+  - backend
+extraResources:
+  - from: backend
+    to: backend
+    filter:
+      - "**/*"
+      - "!.venv/**"
+      - "!venv/**"
+      - "!__pycache__/**"
+      - "!**/*.pyc"
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: assets/icons/icon.ico
+mac:
+  target:
+    - target: dmg
+      arch: [x64, arm64]
+  icon: assets/icons/icon.png
+  category: public.app-category.utilities
+linux:
+  target:
+    - target: AppImage
+      arch: [x64, arm64]
+    - target: deb
+      arch: [x64, arm64]
+    - target: rpm
+      arch: [x64]
+  icon: assets/icons/icon.png
+  category: Utility
+  synopsis: Voice-to-text transcription with local Whisper AI
+  description: |
+    Local voice-to-text transcription powered by Whisper V3.
+    Features push-to-talk, auto-paste, and AI text refinement.
+deb:
+  depends:
+    - libgtk-3-0
+    - libnotify4
+    - libnss3
+    - libxss1
+    - libxtst6
+    - xdg-utils
+  recommends:
+    - xdotool
+    - ydotool
+rpm:
+  depends:
+    - gtk3
+    - libnotify
+    - nss
+    - libXScrnSaver
+    - libXtst
+    - xdg-utils
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
