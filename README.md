@@ -44,6 +44,31 @@ Hold a hotkey, speak, release. Your words appear wherever you're typing.
 - 8GB RAM minimum (16GB recommended for large models)
 - NVIDIA GPU optional (CUDA acceleration, 4GB+ VRAM for large-v3)
 
+### GPU Acceleration (Optional)
+
+The release build uses CPU by default. To enable NVIDIA GPU acceleration for 5-10x faster transcription:
+
+**Windows:**
+1. Install [CUDA Toolkit 12.x](https://developer.nvidia.com/cuda-downloads)
+2. Install [cuDNN 9.x](https://developer.nvidia.com/cudnn) (requires NVIDIA account)
+3. Add cuDNN bin folder to PATH, or copy DLLs to app folder:
+   - `cublas64_12.dll`
+   - `cublasLt64_12.dll`
+   - `cudnn64_9.dll`
+   - `cudnn_ops64_9.dll`
+   - `cudnn_cnn64_9.dll`
+
+**Linux:**
+```bash
+# Ubuntu/Debian
+sudo apt install nvidia-cuda-toolkit
+# Or install from NVIDIA directly for latest version
+```
+
+**macOS:** GPU acceleration not supported (Apple Silicon uses CPU with optimizations).
+
+**Verify GPU is active:** Settings will show "Device: CUDA" instead of "Device: CPU" when GPU acceleration is working.
+
 ## Installation
 
 ### From Release
