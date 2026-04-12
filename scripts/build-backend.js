@@ -14,9 +14,6 @@ const fs = require("fs");
 
 const backendDir = path.join(__dirname, "..", "backend");
 const isWindows = process.platform === "win32";
-const venvPython = isWindows
-  ? path.join(backendDir, ".venv", "Scripts", "python.exe")
-  : path.join(backendDir, ".venv", "bin", "python");
 
 // Parse arguments
 const args = process.argv.slice(2);
@@ -24,19 +21,37 @@ const buildCuda = args.includes("--cuda");
 const specFile = buildCuda ? "server.spec" : "server-cpu.spec";
 const buildType = buildCuda ? "CUDA" : "CPU-only";
 
-// Check venv exists
-if (!fs.existsSync(venvPython)) {
-  console.error("Error: Backend venv not found at:", venvPython);
-  console.error("Run: cd backend && python -m venv .venv && .venv/Scripts/pip install -r requirements.txt");
-  process.exit(1);
+// Find Python - prefer venv, fallback to system
+function findPython() {
+  const venvCandidates = isWindows
+    ? [
+        path.join(backendDir, ".venv", "Scripts", "python.exe"),
+        path.join(backendDir, "venv", "Scripts", "python.exe"),
+      ]
+    : [
+        path.join(backendDir, ".venv", "bin", "python"),
+        path.join(backendDir, "venv", "bin", "python"),
+        path.join(backendDir, ".venv", "bin", "python3"),
+        path.join(backendDir, "venv", "bin", "python3"),
+      ];
+
+  for (const p of venvCandidates) {
+    if (fs.existsSync(p)) return p;
+  }
+
+  // Fallback to system Python (for CI environments)
+  return isWindows ? "python" : "python3";
 }
+
+const pythonExe = findPython();
+console.log("Using Python:", pythonExe);
 
 // Check PyInstaller installed
 try {
-  execSync(`"${venvPython}" -c "import PyInstaller"`, { stdio: "ignore" });
+  execSync(`"${pythonExe}" -c "import PyInstaller"`, { stdio: "ignore" });
 } catch {
   console.log("Installing PyInstaller...");
-  execSync(`"${venvPython}" -m pip install pyinstaller`, { stdio: "inherit" });
+  execSync(`"${pythonExe}" -m pip install pyinstaller`, { stdio: "inherit" });
 }
 
 console.log(`Building backend with PyInstaller (${buildType})...`);
@@ -53,7 +68,7 @@ if (fs.existsSync(distDir)) {
 }
 
 const result = spawnSync(
-  venvPython,
+  pythonExe,
   [
     "-m",
     "PyInstaller",

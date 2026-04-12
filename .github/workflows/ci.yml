@@ -77,11 +77,11 @@ jobs:
 
       - name: Install Python dependencies
         run: |
-          cd backend
           python -m pip install --upgrade pip
+          pip install pyinstaller
+          cd backend
           pip install -r requirements.txt
         shell: bash
-        continue-on-error: true
 
       - name: Build Electron app
         run: npm run electron:build
