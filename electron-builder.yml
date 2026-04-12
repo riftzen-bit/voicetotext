@@ -8,14 +8,11 @@ files:
   - dist
   - backend
 extraResources:
-  - from: backend
-    to: backend
+  # PyInstaller bundled backend (production)
+  - from: backend/dist/vtt-backend
+    to: backend/vtt-backend
     filter:
       - "**/*"
-      - "!.venv/**"
-      - "!venv/**"
-      - "!__pycache__/**"
-      - "!**/*.pyc"
 win:
   target:
     - target: nsis

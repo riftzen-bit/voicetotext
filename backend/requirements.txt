@@ -3,4 +3,6 @@ fastapi
 uvicorn[standard]
 websockets
 numpy
+huggingface_hub
+tqdm
 pycaw; sys_platform == "win32"

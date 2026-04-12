@@ -564,8 +564,9 @@ if __name__ == "__main__":
         )
         raise SystemExit(1)
 
+    # Pass app object directly (not string) for PyInstaller compatibility
     uvicorn.run(
-        "server:app",
+        app,
         host=SERVER_HOST,
         port=SERVER_PORT,
         log_level="info",

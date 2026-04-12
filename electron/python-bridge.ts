@@ -12,8 +12,28 @@ const MODELS_URL = `http://127.0.0.1:${BACKEND_PORT}/models`;
 const TRANSCRIPTION_CONFIG_URL = `http://127.0.0.1:${BACKEND_PORT}/transcription/config`;
 const MODEL_WS_URL = `ws://127.0.0.1:${BACKEND_PORT}/ws/model`;
 
-function findVenvPython(backendDir: string): string {
-  const candidates =
+interface BackendCommand {
+  exe: string;
+  args: string[];
+  cwd: string;
+}
+
+function findBackendCommand(backendDir: string): BackendCommand | null {
+  // Production: PyInstaller executable
+  const exeName = process.platform === "win32" ? "vtt-backend.exe" : "vtt-backend";
+  const productionExe = path.join(backendDir, "vtt-backend", exeName);
+
+  if (fs.existsSync(productionExe)) {
+    console.log("[python-bridge] Found PyInstaller executable:", productionExe);
+    return {
+      exe: productionExe,
+      args: [],
+      cwd: path.dirname(productionExe),
+    };
+  }
+
+  // Development: Python from venv
+  const venvCandidates =
     process.platform === "win32"
       ? [
           path.join(backendDir, ".venv", "Scripts", "python.exe"),
@@ -26,11 +46,25 @@ function findVenvPython(backendDir: string): string {
           path.join(backendDir, "venv", "bin", "python3"),
         ];
 
-  for (const p of candidates) {
-    if (fs.existsSync(p)) return p;
+  for (const pythonPath of venvCandidates) {
+    if (fs.existsSync(pythonPath)) {
+      console.log("[python-bridge] Found venv Python:", pythonPath);
+      return {
+        exe: pythonPath,
+        args: ["server.py"],
+        cwd: backendDir,
+      };
+    }
   }
 
-  return process.platform === "win32" ? "python" : "python3";
+  // Fallback to system Python (may not have dependencies)
+  const systemPython = process.platform === "win32" ? "python" : "python3";
+  console.warn("[python-bridge] No venv found, falling back to system Python:", systemPython);
+  return {
+    exe: systemPython,
+    args: ["server.py"],
+    cwd: backendDir,
+  };
 }
 
 export class PythonBridge {
@@ -74,13 +108,20 @@ export class PythonBridge {
       ? path.join(process.resourcesPath, "backend")
       : path.join(__dirname, "../backend");
 
-    const pythonCmd = findVenvPython(backendDir);
-    console.log(`[python-bridge] Using Python: ${pythonCmd}`);
+    const cmd = findBackendCommand(backendDir);
+    if (!cmd) {
+      console.error("[python-bridge] No backend executable found!");
+      this._status = "error";
+      this.broadcastStatus();
+      return;
+    }
+
+    console.log(`[python-bridge] Starting backend: ${cmd.exe} ${cmd.args.join(" ")}`);
 
     this._procExited = false;
 
-    this.proc = spawn(pythonCmd, ["server.py"], {
-      cwd: backendDir,
+    this.proc = spawn(cmd.exe, cmd.args, {
+      cwd: cmd.cwd,
       stdio: ["ignore", "pipe", "pipe"],
       env: {
         ...process.env,
