@@ -48,15 +48,14 @@ Hold a hotkey, speak, release. Your words appear wherever you're typing.
 
 The release build uses CPU by default. To enable NVIDIA GPU acceleration for 5-10x faster transcription:
 
+> **Note:** CUDA *driver* comes with your NVIDIA GPU driver (already installed). You need the CUDA *Toolkit* which contains the runtime libraries.
+
 **Windows:**
-1. Install [CUDA Toolkit 12.x](https://developer.nvidia.com/cuda-downloads)
-2. Install [cuDNN 9.x](https://developer.nvidia.com/cudnn) (requires NVIDIA account)
-3. Add cuDNN bin folder to PATH, or copy DLLs to app folder:
-   - `cublas64_12.dll`
-   - `cublasLt64_12.dll`
-   - `cudnn64_9.dll`
-   - `cudnn_ops64_9.dll`
-   - `cudnn_cnn64_9.dll`
+1. Install [CUDA Toolkit 12.x](https://developer.nvidia.com/cuda-toolkit) (~3GB download)
+2. Install [cuDNN 9.x](https://developer.nvidia.com/cudnn) (requires free NVIDIA account)
+3. Ensure these DLLs are in PATH or app folder:
+   - `cublas64_12.dll`, `cublasLt64_12.dll` (from CUDA Toolkit)
+   - `cudnn64_9.dll`, `cudnn_ops64_9.dll` (from cuDNN)
 
 **Linux:**
 ```bash
