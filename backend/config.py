@@ -1,6 +1,7 @@
 import ctypes
 import logging
 import os
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -37,24 +38,43 @@ SAMPLE_RATE = 16000
 CHANNELS = 1
 
 MIN_AUDIO_LENGTH = 0.3  # seconds – ignore very short bursts
-MAX_AUDIO_LENGTH = 300  # seconds – hard cap (5 minutes)
+# Default 2 h cap; override with VTT_MAX_AUDIO_LENGTH (seconds).
+# Short caps silently drop late chunks in AudioBuffer and lose user context.
+MAX_AUDIO_LENGTH = max(60, int(os.environ.get("VTT_MAX_AUDIO_LENGTH", "7200")))
 
 
 def _register_windows_cuda_runtime_dirs() -> None:
     if os.name != "nt" or not hasattr(os, "add_dll_directory"):
         return
 
+    candidate_dirs: list[Path] = []
+
+    # PyInstaller bundle: DLLs live under _MEIPASS / _internal
+    meipass = getattr(sys, "_MEIPASS", None)
+    if meipass:
+        internal = Path(meipass)
+        candidate_dirs.append(internal)
+        candidate_dirs.append(internal / "nvidia" / "cublas" / "bin")
+        candidate_dirs.append(internal / "nvidia" / "cudnn" / "bin")
+        candidate_dirs.append(internal / "nvidia" / "cuda_runtime" / "bin")
+        candidate_dirs.append(internal / "nvidia" / "cuda_nvrtc" / "bin")
+        candidate_dirs.append(internal / "ctranslate2")
+
+    # Dev mode: DLLs in .venv site-packages
     site_packages_dir = Path(__file__).resolve().parent / ".venv" / "Lib" / "site-packages"
-    candidate_dirs = [
+    candidate_dirs.extend([
         site_packages_dir / "nvidia" / "cublas" / "bin",
         site_packages_dir / "nvidia" / "cudnn" / "bin",
         site_packages_dir / "nvidia" / "cuda_runtime" / "bin",
         site_packages_dir / "nvidia" / "cuda_nvrtc" / "bin",
-    ]
+    ])
 
     for runtime_dir in candidate_dirs:
         if runtime_dir.is_dir():
-            os.add_dll_directory(str(runtime_dir))
+            try:
+                os.add_dll_directory(str(runtime_dir))
+            except OSError:
+                pass
 
 
 _register_windows_cuda_runtime_dirs()

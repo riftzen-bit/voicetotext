@@ -96,6 +96,8 @@ export function useTranscription(enableWs = true) {
   const [modelStatusLabel, setModelStatusLabel] = useState("");
   const [pasteStatus, setPasteStatus] = useState<PasteStatusInfo | null>(null);
   const phaseRef = useRef<RecordingPhase>("idle");
+  const processingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const recordingStartRef = useRef<number>(0);
   const { settings, loaded } = useSettings();
 
   const audio = useAudioCapture();
@@ -183,6 +185,8 @@ export function useTranscription(enableWs = true) {
     setPhase("recording");
     setCurrentText("");
     setPasteStatus(null);
+    recordingStartRef.current = Date.now();
+    ws.startSession();
 
     // Mute other apps while recording
     try {
@@ -198,10 +202,20 @@ export function useTranscription(enableWs = true) {
 
   const stopRecording = useCallback(async () => {
     playSound("stop");
-    audio.stopCapture();
+    await audio.stopCapture();
     phaseRef.current = "processing";
     setPhase("processing");
     ws.sendEnd();
+
+    // No destructive timeout here. The backend keeps the session alive for up
+    // to an hour, and the client re-sends any missing audio on reconnect, so
+    // a slow transcription or a transient socket drop must never wipe the
+    // buffered dictation. The user can press cancel if they truly want to
+    // abandon the session.
+    if (processingTimeoutRef.current) {
+      clearTimeout(processingTimeoutRef.current);
+      processingTimeoutRef.current = null;
+    }
 
     // Unmute other apps after recording
     try {
@@ -213,10 +227,14 @@ export function useTranscription(enableWs = true) {
 
   const cancelRecording = useCallback(async () => {
     playSound("cancel");
-    audio.stopCapture();
+    await audio.stopCapture();
     phaseRef.current = "idle";
     setPhase("idle");
     setCurrentText("");
+    if (processingTimeoutRef.current) {
+      clearTimeout(processingTimeoutRef.current);
+      processingTimeoutRef.current = null;
+    }
     ws.sendCancel();
 
     // Unmute other apps after cancellation
@@ -229,6 +247,15 @@ export function useTranscription(enableWs = true) {
 
   const handleWsMessage = useCallback(
     async (msg: TranscriptionMessage) => {
+      // Clear processing timeout on any terminal response
+      if (msg.type === "result" || msg.type === "empty" || msg.type === "error" || msg.type === "cancelled") {
+        if (processingTimeoutRef.current) {
+          clearTimeout(processingTimeoutRef.current);
+          processingTimeoutRef.current = null;
+        }
+        ws.clearSession();
+      }
+
       switch (msg.type) {
         case "transcribing":
           setPhase("processing");
@@ -302,11 +329,21 @@ export function useTranscription(enableWs = true) {
           break;
         }
 
-        case "empty":
-          setPhase("idle");
+        case "empty": {
+          // Surface empty result to user instead of silently returning to idle.
+          // Previously this was a silent drop, so users who sat too far from the
+          // mic or spoke softly saw their dictation vanish with no explanation.
+          playSound("error");
+          const note = msg.message || "No speech detected. Try speaking closer to the mic or a bit louder.";
+          setCurrentText(note);
+          setPhase("error");
           phaseRef.current = "idle";
-          setCurrentText("");
+          setTimeout(() => {
+            setCurrentText("");
+            setPhase("idle");
+          }, 3500);
           break;
+        }
 
         case "error":
           playSound("error");

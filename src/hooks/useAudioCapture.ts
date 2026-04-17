@@ -77,8 +77,28 @@ export function useAudioCapture() {
     }
   }, []);
 
-  const stopCapture = useCallback(() => {
+  const stopCapture = useCallback(async () => {
     cancelAnimationFrame(rafRef.current);
+
+    // Ask the worklet to emit any buffered tail samples that were shorter
+    // than minChunkSize. Without this, the last ~32 ms of speech is dropped
+    // on stop because the processor waits for a full chunk before posting.
+    const node = nodeRef.current;
+    if (node) {
+      try {
+        node.port.postMessage({ type: "flush" });
+      } catch {
+        /* port may already be closed; ignore */
+      }
+    }
+
+    // Give the worklet one render quantum (~3 ms at 48 kHz, up to ~10 ms on
+    // throttled threads) to post its tail message before we tear anything
+    // down. onChunk (set in startCapture) handles delivery to the caller.
+    await new Promise((r) => setTimeout(r, 60));
+
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
 
     nodeRef.current?.disconnect();
     nodeRef.current = null;
@@ -86,11 +106,12 @@ export function useAudioCapture() {
     analyserRef.current?.disconnect();
     analyserRef.current = null;
 
-    ctxRef.current?.close();
+    try {
+      await ctxRef.current?.close();
+    } catch {
+      /* context may already be closed */
+    }
     ctxRef.current = null;
-
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-    streamRef.current = null;
 
     setState({ isCapturing: false, audioLevel: 0, error: null });
   }, []);

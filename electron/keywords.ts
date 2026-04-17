@@ -168,32 +168,40 @@ export function applyKeywords(
     return { text, appliedCount: 0 };
   }
 
+  // Normalize to NFC so Vietnamese / accented text matches regardless of whether
+  // Whisper output and the saved trigger were composed or decomposed.
+  // Without this, a trigger saved as "á" (NFC, one codepoint) never matches
+  // Whisper output containing "a\u0301" (NFD, two codepoints) even though they
+  // look identical on screen.
+  let result = text.normalize("NFC");
+
   // Sort by trigger length descending to match longer phrases first
   const sorted = [...keywordData].sort(
     (a, b) => b.trigger.length - a.trigger.length
   );
 
-  let result = text;
   let appliedCount = 0;
   const appliedIds: Set<string> = new Set();
 
   for (const keyword of sorted) {
     const flags = keyword.caseSensitive ? "g" : "gi";
+    const normalizedTrigger = keyword.trigger.normalize("NFC");
+    const normalizedCorrection = keyword.correction.normalize("NFC");
     let pattern: string;
 
     if (keyword.wholeWord) {
       // Unicode-aware word boundary using lookbehind/lookahead
       // This handles Vietnamese and other non-ASCII text better
-      const escaped = escapeRegex(keyword.trigger);
+      const escaped = escapeRegex(normalizedTrigger);
       pattern = `(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`;
     } else {
-      pattern = escapeRegex(keyword.trigger);
+      pattern = escapeRegex(normalizedTrigger);
     }
 
     try {
       const regex = new RegExp(pattern, flags + "u");
       const beforeReplace = result;
-      result = result.replace(regex, keyword.correction);
+      result = result.replace(regex, normalizedCorrection);
 
       if (result !== beforeReplace) {
         appliedIds.add(keyword.id);
@@ -202,13 +210,13 @@ export function applyKeywords(
     } catch (err) {
       // Fallback for environments without Unicode regex support
       const simplePattern = keyword.wholeWord
-        ? `\\b${escapeRegex(keyword.trigger)}\\b`
-        : escapeRegex(keyword.trigger);
+        ? `\\b${escapeRegex(normalizedTrigger)}\\b`
+        : escapeRegex(normalizedTrigger);
 
       try {
         const regex = new RegExp(simplePattern, flags);
         const beforeReplace = result;
-        result = result.replace(regex, keyword.correction);
+        result = result.replace(regex, normalizedCorrection);
 
         if (result !== beforeReplace) {
           appliedIds.add(keyword.id);

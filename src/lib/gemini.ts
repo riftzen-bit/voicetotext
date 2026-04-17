@@ -100,8 +100,14 @@ export async function refineTextWithGemini(
     return text;
   }
 
+  // Scale budgets with input size so long dictations don't hit the 8s / 512-token
+  // ceilings and either abort or come back truncated. Rough token estimate: 3 chars/token.
+  const estInputTokens = Math.ceil(text.length / 3);
+  const maxOutputTokens = Math.min(8192, Math.max(512, estInputTokens + 256));
+  const timeoutMs = Math.min(60_000, Math.max(8_000, Math.ceil(text.length / 50) * 1000));
+
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 8000);
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const response = await fetch(
@@ -122,7 +128,7 @@ export async function refineTextWithGemini(
           ],
           generationConfig: {
             temperature: 0.05,  // Lower temperature for more consistent output
-            maxOutputTokens: 512,
+            maxOutputTokens,
             topP: 0.9,
           },
         }),

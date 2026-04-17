@@ -16,6 +16,31 @@ class VttCaptureProcessor extends AudioWorkletProcessor {
     this._inputLen = 0;
     // Smaller chunks for lower latency (was 1024, now 512)
     this._minChunkSize = 512;
+
+    // Main thread can request a final flush of any sub-chunk-sized tail
+    // samples before closing the AudioContext so the stop-press does not
+    // lose up to ~32 ms of the user's last word.
+    this.port.onmessage = (e) => {
+      if (e && e.data && e.data.type === "flush") {
+        this._flushTail();
+      }
+    };
+  }
+
+  _flushTail() {
+    if (this._inputLen <= 0) return;
+    const outSamples = Math.max(1, Math.floor(this._inputLen * this._resampleRatio));
+    const resampled = new Float32Array(outSamples);
+    for (let i = 0; i < outSamples; i++) {
+      const inputPos = i / this._resampleRatio;
+      const idx = inputPos | 0;
+      const frac = inputPos - idx;
+      const s0 = this._inputBuffer[idx] || 0;
+      const s1 = this._inputBuffer[idx + 1] || s0;
+      resampled[i] = s0 + (s1 - s0) * frac;
+    }
+    this.port.postMessage(resampled.buffer, [resampled.buffer]);
+    this._inputLen = 0;
   }
 
   process(inputs) {

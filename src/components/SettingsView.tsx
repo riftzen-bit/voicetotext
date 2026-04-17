@@ -15,16 +15,22 @@ import TemplatesView from "./TemplatesView";
 import FormattingView from "./FormattingView";
 import AboutView from "./AboutView";
 import KeywordSuggestionBanner from "./KeywordSuggestionBanner";
+import MoreView from "./MoreView";
 import "../styles/settings.css";
 
 type ModelStatus = "not_downloaded" | "downloading" | "downloaded" | "loading" | "loaded" | "error";
-type TabType = "general" | "ai" | "templates" | "formatting" | "history" | "analytics" | "phrases" | "keywords" | "shortcuts" | "export" | "appearance" | "about";
+type TabType = "general" | "ai" | "templates" | "formatting" | "history" | "analytics" | "phrases" | "keywords" | "shortcuts" | "export" | "appearance" | "about" | "more";
 
 interface TabConfig {
   id: TabType;
   label: string;
   icon: React.ReactNode;
   badge?: number;
+  // `primary: true` keeps the tab in the left rail. Everything else is
+  // auxiliary and only reachable via the "More" landing page.
+  primary?: boolean;
+  // One-line blurb shown on the More grid card.
+  description?: string;
 }
 
 function WindowControls() {
@@ -142,6 +148,7 @@ export default function SettingsView() {
     {
       id: "general",
       label: "System",
+      primary: true,
       icon: (
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <circle cx="12" cy="12" r="3" />
@@ -152,6 +159,7 @@ export default function SettingsView() {
     {
       id: "ai",
       label: "Engine",
+      primary: true,
       icon: (
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
@@ -161,29 +169,9 @@ export default function SettingsView() {
       ),
     },
     {
-      id: "templates",
-      label: "Templates",
-      icon: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-          <line x1="3" y1="9" x2="21" y2="9" />
-          <line x1="9" y1="21" x2="9" y2="9" />
-        </svg>
-      ),
-    },
-    {
-      id: "formatting",
-      label: "Formatting",
-      icon: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-        </svg>
-      ),
-    },
-    {
       id: "history",
       label: "Transcript",
+      primary: true,
       icon: (
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -196,8 +184,45 @@ export default function SettingsView() {
       badge: history.length,
     },
     {
+      id: "more",
+      label: "More",
+      primary: true,
+      icon: (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="3" width="7" height="7" />
+          <rect x="14" y="3" width="7" height="7" />
+          <rect x="3" y="14" width="7" height="7" />
+          <rect x="14" y="14" width="7" height="7" />
+        </svg>
+      ),
+    },
+    {
+      id: "templates",
+      label: "Templates",
+      description: "Context prompts that guide AI refinement.",
+      icon: (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+          <line x1="3" y1="9" x2="21" y2="9" />
+          <line x1="9" y1="21" x2="9" y2="9" />
+        </svg>
+      ),
+    },
+    {
+      id: "formatting",
+      label: "Formatting",
+      description: "Text cleanup rules applied after transcription.",
+      icon: (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+        </svg>
+      ),
+    },
+    {
       id: "analytics",
       label: "Analytics",
+      description: "Usage stats, language breakdown, activity charts.",
       icon: (
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <line x1="18" y1="20" x2="18" y2="10" />
@@ -209,6 +234,7 @@ export default function SettingsView() {
     {
       id: "phrases",
       label: "Phrases",
+      description: "Saved snippets you can paste by voice command.",
       icon: (
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <line x1="8" y1="6" x2="21" y2="6" />
@@ -223,6 +249,7 @@ export default function SettingsView() {
     {
       id: "keywords",
       label: "Keywords",
+      description: "Vocabulary corrections applied to every transcript.",
       icon: (
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M4 9h16" />
@@ -235,6 +262,7 @@ export default function SettingsView() {
     {
       id: "shortcuts",
       label: "Shortcuts",
+      description: "Global hotkey and command bindings.",
       icon: (
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <rect x="2" y="4" width="20" height="16" rx="2" ry="2" />
@@ -252,6 +280,7 @@ export default function SettingsView() {
     {
       id: "export",
       label: "Export",
+      description: "Save transcripts to file in various formats.",
       icon: (
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -263,6 +292,7 @@ export default function SettingsView() {
     {
       id: "appearance",
       label: "Appearance",
+      description: "Theme, overlay, font, and visual tweaks.",
       icon: (
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <circle cx="12" cy="12" r="5" />
@@ -280,6 +310,7 @@ export default function SettingsView() {
     {
       id: "about",
       label: "About",
+      description: "Version info, credits, and licenses.",
       icon: (
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <circle cx="12" cy="12" r="10" />
@@ -289,6 +320,11 @@ export default function SettingsView() {
       ),
     },
   ];
+
+  const primaryTabs = tabs.filter((t) => t.primary);
+  const auxiliaryTabs = tabs.filter((t) => !t.primary);
+  const auxiliaryIds = new Set(auxiliaryTabs.map((t) => t.id));
+  const activeTabMeta = tabs.find((t) => t.id === activeTab);
 
   const fetchModelStatus = useCallback(async () => {
     const api = getApi();
@@ -439,20 +475,28 @@ export default function SettingsView() {
           </button>
 
           <div className="nav-items">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                className={`nav-item ${activeTab === tab.id ? "active" : ""}`}
-                onClick={() => setActiveTab(tab.id)}
-                title={sidebarCollapsed ? tab.label : undefined}
-              >
-                <span className="nav-icon">{tab.icon}</span>
-                <span className="nav-label">{tab.label}</span>
-                {tab.badge !== undefined && tab.badge > 0 && (
-                  <span className="nav-badge">{tab.badge}</span>
-                )}
-              </button>
-            ))}
+            {primaryTabs.map((tab) => {
+              // The "More" rail entry highlights whenever an auxiliary page
+              // is open, so the user can see at a glance that they're inside
+              // the More section regardless of which sub-page is rendered.
+              const isActive =
+                activeTab === tab.id ||
+                (tab.id === "more" && auxiliaryIds.has(activeTab));
+              return (
+                <button
+                  key={tab.id}
+                  className={`nav-item ${isActive ? "active" : ""}`}
+                  onClick={() => setActiveTab(tab.id)}
+                  title={sidebarCollapsed ? tab.label : undefined}
+                >
+                  <span className="nav-icon">{tab.icon}</span>
+                  <span className="nav-label">{tab.label}</span>
+                  {tab.badge !== undefined && tab.badge > 0 && (
+                    <span className="nav-badge">{tab.badge}</span>
+                  )}
+                </button>
+              );
+            })}
           </div>
 
           {!sidebarCollapsed && (
@@ -464,6 +508,44 @@ export default function SettingsView() {
         </nav>
 
         <main className="settings-content">
+          {auxiliaryIds.has(activeTab) && (
+            <nav className="settings-breadcrumb" aria-label="Breadcrumb">
+              <button
+                type="button"
+                className="breadcrumb-link"
+                onClick={() => setActiveTab("more")}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="15 18 9 12 15 6" />
+                </svg>
+                More
+              </button>
+              <span className="breadcrumb-sep">/</span>
+              <span className="breadcrumb-current">{activeTabMeta?.label}</span>
+            </nav>
+          )}
+
+          {activeTab === "more" && (
+            <MoreView
+              items={auxiliaryTabs.map((t) => ({
+                id: t.id,
+                label: t.label,
+                description: t.description || "",
+                icon: t.icon,
+              }))}
+              onNavigate={(id) => setActiveTab(id as TabType)}
+            />
+          )}
+
           {activeTab === "general" && (
             <div className="settings-panel">
               <section className="settings-section">
@@ -681,16 +763,12 @@ export default function SettingsView() {
                     <optgroup label="Latest (Recommended)">
                       <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
                       <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
-                      <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                      <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash Lite</option>
                     </optgroup>
                     <optgroup label="Preview Models">
                       <option value="gemini-3.1-flash-lite-preview">Gemini 3.1 Flash Lite (Preview)</option>
-                      <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (Preview)</option>
-                      <option value="gemini-3.0-flash-preview">Gemini 3.0 Flash (Preview)</option>
-                    </optgroup>
-                    <optgroup label="Legacy">
-                      <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
-                      <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+                      <option value="gemini-3-pro-preview">Gemini 3 Pro (Preview)</option>
+                      <option value="gemini-3-flash-preview">Gemini 3 Flash (Preview)</option>
                     </optgroup>
                   </select>
                 </div>

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import threading
 from dataclasses import dataclass, field
 from typing import Any, List
@@ -18,6 +19,7 @@ from config import (
     resolve_device,
 )
 from model_manager import check_model_downloaded, get_model_path_if_cached
+from audio_enhancer import apply_high_pass_filter
 
 log = logging.getLogger(__name__)
 
@@ -40,7 +42,11 @@ _HALLUCINATION_PATTERNS = (
     "see you next time",
     "see you in the next",
     "bye bye",
+    "bye-bye",
+    "bye-bye.",
     "goodbye",
+    "see you later",
+    "thanks for listening",
     "subtitles by",
     "captions by",
     "transcribed by",
@@ -67,33 +73,95 @@ _HALLUCINATION_PATTERNS = (
     "구독",
 )
 
-def _is_hallucination(text: str) -> bool:
+def _strip_trailing_repeats(text: str) -> str:
+    """
+    Collapse a trailing decoder loop (e.g. "Bye-bye. Bye-bye. Bye-bye.") to one
+    instance. Whisper sometimes enters a repeat state on silent tails and emits
+    the same short phrase many times. We scan for the largest window (up to 10
+    words) whose last-N tokens repeat >=3 times consecutively at the end of the
+    transcript, then keep everything before the loop plus one instance.
+    Comparison is punctuation-insensitive and case-insensitive so "Bye-bye."
+    and "bye bye" count as the same phrase.
+    """
+    if not text:
+        return text
+    words = text.split()
+    n_words = len(words)
+    if n_words < 6:
+        return text
+
+    def _norm(w: str) -> str:
+        return re.sub(r"[^\w]", "", w).lower()
+
+    normed = [_norm(w) for w in words]
+
+    # Search every window size and pick the candidate that removes the most
+    # text (earliest start index). Tie-break on the smaller window so a pure
+    # word-level loop ("bye bye bye...") collapses to one instance rather
+    # than a pair, while a multi-word loop ("see you later ...") still wins
+    # when its pattern reaches further back than any single-word match.
+    max_window = min(10, n_words // 3)
+    best: tuple[int, int] | None = None  # (start_idx, window)
+    for window in range(1, max_window + 1):
+        tail = normed[-window:]
+        if not any(tail):
+            continue
+        repeats = 1
+        idx = n_words - window
+        while idx - window >= 0 and normed[idx - window:idx] == tail:
+            repeats += 1
+            idx -= window
+        if repeats >= 3:
+            if best is None or idx < best[0] or (idx == best[0] and window < best[1]):
+                best = (idx, window)
+
+    if best is None:
+        return text
+    start_idx, window = best
+    kept = words[:start_idx] + words[n_words - window:]
+    return " ".join(kept).strip()
+
+
+def _is_hallucination(text: str, duration: float = 0.0) -> bool:
     """
     Detect if transcription is likely a hallucination.
-    Whisper tends to hallucinate common phrases when given silence or noise.
+    Whisper tends to hallucinate common phrases on silence/noise, but ONLY
+    on short clips. On longer dictations the same phrases ("thank you",
+    "music", "bye") routinely appear in real speech and must not be filtered.
     """
     if not text:
         return False
 
     lower_text = text.lower().strip()
 
-    # Check for common hallucination patterns
-    for pattern in _HALLUCINATION_PATTERNS:
-        if pattern.lower() in lower_text:
-            return True
+    # Pattern-based check: only credible on short audio. Above 5 seconds
+    # a substring match is almost certainly legitimate speech, not a
+    # hallucination, so skip the list entirely.
+    if duration <= 5.0:
+        for pattern in _HALLUCINATION_PATTERNS:
+            if pattern.lower() in lower_text:
+                return True
+    else:
+        # On long audio, only flag when the ENTIRE transcript equals
+        # one of the patterns (e.g. the whole 30s returned just "music").
+        for pattern in _HALLUCINATION_PATTERNS:
+            if lower_text == pattern.lower():
+                return True
 
-    # Check for repetitive text (same phrase repeated)
+    # Repetition check works at any duration — Whisper stuck in a loop
+    # is a real failure mode for long audio too.
     words = lower_text.split()
     if len(words) >= 4:
-        # Check if entire text is just repetition of first few words
         first_part = " ".join(words[:2])
         if lower_text.count(first_part) >= 3:
             return True
 
-    # Check for text that's mostly punctuation or symbols
-    alpha_chars = sum(1 for c in text if c.isalpha())
-    if len(text) > 0 and alpha_chars / len(text) < 0.3:
-        return True
+    # Mostly-symbols check is only meaningful on short outputs. Skip on
+    # longer transcripts where punctuation-heavy content is normal.
+    if duration <= 5.0:
+        alpha_chars = sum(1 for c in text if c.isalpha())
+        if len(text) > 0 and alpha_chars / len(text) < 0.3:
+            return True
 
     return False
 
@@ -269,6 +337,13 @@ class Transcriber:
 
         # VAD is ALWAYS disabled to ensure complete transcription
         # The user reported that VAD was cutting off speech even with tuned parameters
+        #
+        # Tuning for shy / soft / fast speakers:
+        # - no_speech_threshold=0.4 (default 0.6) makes Whisper less likely to discard
+        #   quiet or hesitant speech as "no speech".
+        # - temperature fallback list lets Whisper retry with higher randomness when
+        #   beam search produces low-confidence output (helps fast/slurred speech).
+        # - compression_ratio_threshold=2.4 (default) prevents runaway repetition.
         segments_gen, info = self._model.transcribe(
             audio,
             beam_size=settings.beam_size,
@@ -277,6 +352,15 @@ class Transcriber:
             condition_on_previous_text=settings.condition_on_previous_text,
             word_timestamps=False,  # Disable for speed
             without_timestamps=False,  # Keep segment timestamps
+            no_speech_threshold=0.4,
+            temperature=(0.0, 0.2, 0.4, 0.6, 0.8),
+            compression_ratio_threshold=2.4,
+            # Kill decoder loops at the source: penalize tokens the model has
+            # already emitted, and forbid repeating any 3-gram. Prevents the
+            # "Bye-bye. Bye-bye. Bye-bye." cascade on silent tails without
+            # weakening the model's quality on real speech.
+            repetition_penalty=1.15,
+            no_repeat_ngram_size=3,
         )
 
         segments: list[Segment] = []
@@ -295,6 +379,18 @@ class Transcriber:
 
         full_text = " ".join(full_text_parts).strip()
 
+        # Post-process: if the decoder still managed to loop (repetition_penalty
+        # + no_repeat_ngram_size catch most cases but not all), strip any
+        # trailing repeated phrase while preserving real content before it.
+        stripped = _strip_trailing_repeats(full_text)
+        if stripped != full_text:
+            log.warning(
+                "Trailing repeat collapsed: %d chars -> %d chars",
+                len(full_text),
+                len(stripped),
+            )
+            full_text = stripped
+
         log.info(
             "Transcription complete: %d segments, %d chars, %d words, language=%s (%.2f%%)",
             len(segments),
@@ -309,7 +405,7 @@ class Transcriber:
             return None
 
         # Filter out hallucinations - Whisper sometimes generates fake text on silence/noise
-        if _is_hallucination(full_text):
+        if _is_hallucination(full_text, duration):
             log.warning(
                 "Hallucination detected and filtered: '%s' (%.2fs audio)",
                 full_text[:100],
@@ -317,8 +413,10 @@ class Transcriber:
             )
             return None
 
-        # Additional check: if language probability is very low, text might be hallucinated
-        if info.language_probability < 0.5 and len(full_text.split()) < 5:
+        # Filter only when confidence is extremely low AND text is a single word.
+        # Previous cutoff (prob<0.3, words<3) discarded legitimate short utterances
+        # from shy / quiet speakers where language detection is less certain.
+        if info.language_probability < 0.2 and len(full_text.split()) < 2:
             log.warning(
                 "Low confidence transcription filtered: '%s' (prob=%.2f%%)",
                 full_text[:50],
@@ -369,20 +467,16 @@ class Transcriber:
         # Convert to float32 if needed
         audio = audio.astype(np.float32)
 
-        # Simple normalization - only clip protection, no aggressive processing
-        # The audio enhancement was potentially removing speech as "noise"
+        # High-pass filter removes low-frequency rumble (HVAC, electronics hum)
+        # that degrades Whisper accuracy — safe for speech (80Hz cutoff)
+        audio = apply_high_pass_filter(audio, cutoff_hz=80.0)
+
+        # Always normalize to consistent peak level for Whisper
         peak = np.abs(audio).max()
         if peak > 0:
-            # Normalize to -3dB peak (0.707) to avoid clipping while preserving dynamics
             target_peak = 0.707
-            if peak > 1.0:
-                # Clip protection - normalize if over 1.0
-                audio = audio / peak * target_peak
-                log.debug("Audio normalized: peak %.3f -> %.3f", peak, target_peak)
-            elif peak < 0.01:
-                # Very quiet audio - boost it
-                audio = audio / peak * target_peak
-                log.debug("Quiet audio boosted: peak %.5f -> %.3f", peak, target_peak)
+            audio = audio / peak * target_peak
+            log.debug("Audio normalized: peak %.5f -> %.3f", peak, target_peak)
 
         with self._lock:
             if self._model is None:
