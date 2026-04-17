@@ -123,6 +123,16 @@ def _missing_cuda_runtime_libraries() -> tuple[str, ...]:
     return tuple(name for name in runtime_libraries if not _library_available(name))
 
 
+def _is_cpu_only_bundle() -> bool:
+    # PyInstaller CPU build strips nvidia/* entirely. Presence of
+    # _MEIPASS without a bundled nvidia/ dir means GPU was never shipped,
+    # so CUDA probing is guaranteed to miss and only produces noise.
+    meipass = getattr(sys, "_MEIPASS", None)
+    if not meipass:
+        return False
+    return not (Path(meipass) / "nvidia").is_dir()
+
+
 def _detect_runtime() -> RuntimeDiagnostics:
     requested_device = WHISPER_DEVICE
 
@@ -130,6 +140,18 @@ def _detect_runtime() -> RuntimeDiagnostics:
         log.info("Whisper device forced to CPU.")
         return RuntimeDiagnostics(
             requested_device="cpu",
+            resolved_device="cpu",
+            compute_type=WHISPER_COMPUTE_TYPE,
+            has_cuda_driver=False,
+            gpu_ready=False,
+            missing_runtime_libraries=(),
+            runtime_issue=None,
+        )
+
+    if requested_device == "auto" and _is_cpu_only_bundle():
+        log.info("CPU-only build detected; skipping CUDA probe.")
+        return RuntimeDiagnostics(
+            requested_device="auto",
             resolved_device="cpu",
             compute_type=WHISPER_COMPUTE_TYPE,
             has_cuda_driver=False,
