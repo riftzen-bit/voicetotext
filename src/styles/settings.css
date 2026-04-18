@@ -21,8 +21,19 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 16px;
+  padding: 0 8px 0 12px;
   border-bottom: 1px solid var(--border-subtle);
+}
+
+.titlebar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  -webkit-app-region: drag;
+}
+
+.titlebar-toggle {
+  -webkit-app-region: no-drag;
 }
 
 .settings-title {
@@ -81,6 +92,35 @@
   display: grid;
   grid-template-columns: 224px 1fr;
   overflow: hidden;
+  transition: grid-template-columns var(--duration-normal) var(--ease-out);
+}
+
+.settings-body.nav-collapsed {
+  grid-template-columns: 56px 1fr;
+}
+
+.settings-nav.is-collapsed .nav-eyebrow {
+  display: none;
+}
+
+.settings-nav.is-collapsed {
+  padding: 16px 0;
+}
+
+.settings-nav.is-collapsed .nav-item {
+  grid-template-columns: 1fr;
+  padding: 10px 0;
+  justify-items: center;
+}
+
+.settings-nav.is-collapsed .nav-item-label {
+  display: none;
+}
+
+.settings-nav.is-collapsed .nav-item.is-active::before {
+  left: 0;
+  top: 6px;
+  bottom: 6px;
 }
 
 .settings-nav {
@@ -599,6 +639,32 @@
   display: flex;
   gap: 8px;
   align-items: center;
+}
+
+/* ---------- AI / RAW badge ---------- */
+
+.ai-badge {
+  display: inline-block;
+  padding: 2px 7px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  font-weight: 600;
+  border-radius: 3px;
+  vertical-align: middle;
+  line-height: 1.4;
+}
+
+.ai-badge.is-on {
+  background: rgba(167, 139, 250, 0.14);
+  color: #a78bfa;
+  border: 1px solid rgba(167, 139, 250, 0.35);
+}
+
+.ai-badge.is-off {
+  background: transparent;
+  color: var(--text-tertiary);
+  border: 1px solid var(--border-subtle);
 }
 
 /* ---------- Accent swatches ---------- */

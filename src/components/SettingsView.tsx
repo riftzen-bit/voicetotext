@@ -37,17 +37,45 @@ function pad2(n: number) {
 
 export default function SettingsView() {
   const [active, setActive] = useState<SectionId>("record");
+  const [navCollapsed, setNavCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem("vtt.navCollapsed") === "1";
+    } catch {
+      return false;
+    }
+  });
 
   useEffect(() => {
     document.body.style.background = "var(--bg-raised)";
   }, []);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem("vtt.navCollapsed", navCollapsed ? "1" : "0");
+    } catch {}
+  }, [navCollapsed]);
+
   return (
     <div className="settings-shell">
       <div className="settings-titlebar">
-        <div className="settings-title">
-          <span className="settings-title-accent">●</span>
-          VoiceToText · Settings
+        <div className="titlebar-left">
+          <button
+            type="button"
+            className="window-btn titlebar-toggle"
+            onClick={() => setNavCollapsed((c) => !c)}
+            aria-label={navCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={navCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            <svg viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <line x1="2" y1="3" x2="10" y2="3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+              <line x1="2" y1="6" x2="10" y2="6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+              <line x1="2" y1="9" x2="10" y2="9" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+            </svg>
+          </button>
+          <div className="settings-title">
+            <span className="settings-title-accent">●</span>
+            VoiceToText · Settings
+          </div>
         </div>
         <div className="window-controls">
           <button
@@ -74,8 +102,8 @@ export default function SettingsView() {
         </div>
       </div>
 
-      <div className="settings-body">
-        <nav className="settings-nav">
+      <div className={`settings-body${navCollapsed ? " nav-collapsed" : ""}`}>
+        <nav className={`settings-nav${navCollapsed ? " is-collapsed" : ""}`}>
           <div className="nav-eyebrow">Sections</div>
           {NAV.map((item, i) => (
             <button
@@ -83,6 +111,7 @@ export default function SettingsView() {
               type="button"
               className={`nav-item${active === item.id ? " is-active" : ""}`}
               onClick={() => setActive(item.id)}
+              title={navCollapsed ? item.label : undefined}
             >
               <span className="nav-item-num">{pad2(i + 1)}</span>
               <span className="nav-item-label">{item.label}</span>

@@ -219,10 +219,17 @@ export default function HistorySection() {
                     {h.text}
                   </div>
                   <div className="list-item-sub">
-                    {formatTimestamp(h.timestamp)}
-                    {h.duration ? ` · ${formatDuration(h.duration)}` : ""}
-                    {h.language && h.language !== "unknown" ? ` · ${h.language}` : ""}
-                    {h.refined ? " · refined" : ""}
+                    <span
+                      className={`ai-badge${h.refined ? " is-on" : " is-off"}`}
+                      title={h.refined ? "Refined by AI" : "Raw transcript (no AI)"}
+                    >
+                      {h.refined ? "AI" : "RAW"}
+                    </span>
+                    <span style={{ marginLeft: 8 }}>
+                      {formatTimestamp(h.timestamp)}
+                      {h.duration ? ` · ${formatDuration(h.duration)}` : ""}
+                      {h.language && h.language !== "unknown" ? ` · ${h.language}` : ""}
+                    </span>
                   </div>
                 </div>
                 <div className="list-item-actions" onClick={(e) => e.stopPropagation()}>
@@ -265,12 +272,20 @@ export default function HistorySection() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="history-modal__head">
-              <div className="history-modal__eyebrow mono">Transcript</div>
+              <div className="history-modal__eyebrow mono">
+                Transcript
+                <span
+                  className={`ai-badge${selected.refined ? " is-on" : " is-off"}`}
+                  style={{ marginLeft: 10 }}
+                  title={selected.refined ? "Refined by AI (Gemini)" : "Raw transcript — AI refinement did not run"}
+                >
+                  {selected.refined ? "AI" : "RAW"}
+                </span>
+              </div>
               <div className="history-modal__meta">
                 {formatFullTimestamp(selected.timestamp)}
                 {selected.duration ? ` · ${formatDuration(selected.duration)}` : ""}
                 {selected.language && selected.language !== "unknown" ? ` · ${selected.language}` : ""}
-                {selected.refined ? " · refined" : ""}
                 {typeof selected.confidence === "number" ? ` · ${Math.round(selected.confidence * 100)}% conf` : ""}
               </div>
             </div>
