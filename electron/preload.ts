@@ -17,6 +17,7 @@ export interface KeywordSuggestion {
 }
 
 export interface VttApi {
+  platform: NodeJS.Platform;
   onRecordingState: (cb: (state: "start" | "stop" | "cancel") => void) => () => void;
   onHotkeyMode: (cb: (mode: "ptt" | "ttt") => void) => () => void;
   sendAudioChunk: (chunk: ArrayBuffer) => void;
@@ -62,6 +63,8 @@ export interface VttApi {
 }
 
 const api: VttApi = {
+  platform: process.platform,
+
   onRecordingState(cb) {
     const handler = (_e: Electron.IpcRendererEvent, state: "start" | "stop" | "cancel") => cb(state);
     ipcRenderer.on("recording-state", handler);

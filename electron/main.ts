@@ -54,14 +54,31 @@ function createOverlayWindow(): BrowserWindow {
 
 function createSettingsWindow(): BrowserWindow {
   const appIcon = getAppIcon();
+  const isMac = process.platform === "darwin";
+  const isWin = process.platform === "win32";
 
+  // Liquid Glass chrome: macOS uses native vibrancy (under-window tint);
+  // Windows 11 uses DWM acrylic via backgroundMaterial. Both require
+  // frame:false and a non-opaque background on the window. Acrylic
+  // needs transparent:false (DWM composes behind an opaque hole);
+  // vibrancy wants transparent:true so AppKit sees the window backing.
   const win = new BrowserWindow({
-    width: 840,
-    height: 720,
+    width: 900,
+    height: 760,
+    minWidth: 720,
+    minHeight: 560,
     show: true,
     frame: false,
     resizable: true,
     icon: appIcon,
+    titleBarStyle: isMac ? "hiddenInset" : "hidden",
+    trafficLightPosition: isMac ? { x: 16, y: 16 } : undefined,
+    backgroundColor: isWin ? "#00000000" : undefined,
+    transparent: isMac,
+    vibrancy: isMac ? "under-window" : undefined,
+    visualEffectState: isMac ? "active" : undefined,
+    backgroundMaterial: isWin ? "acrylic" : undefined,
+    roundedCorners: true,
     webPreferences: {
       preload: PRELOAD_PATH,
       contextIsolation: true,

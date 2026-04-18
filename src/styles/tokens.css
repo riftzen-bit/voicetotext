@@ -1,82 +1,42 @@
 /*
- * VoiceToText Design System
- * Aesthetic: Studio Monitor - Professional audio equipment elegance
- * Inspired by: Bang & Olufsen, Braun, Swiss precision instruments
+ * VoiceToText Design System — Liquid Glass
+ * Aesthetic: macOS Tahoe (26) — translucent surfaces, tinted vibrancy,
+ * specular highlights, Apple system motion.
+ *
+ * Preserve legacy variable names (--bg-*, --text-*, --accent*, --radius-*,
+ * --shadow-*) so existing stylesheets compile while new --glass-*, --surface-*,
+ * --ring-*, --spring-* tokens drive the rebuild.
  */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
-  /*
-   * Core Palette - Warm Graphite
-   * A refined dark palette with subtle warm undertones
-   */
-  --bg-deep: #0C0B0A;
-  --bg-base: #141311;
-  --bg-raised: #1A1917;
-  --bg-surface: #201E1C;
-  --bg-elevated: #262421;
-  --bg-hover: #2C2A27;
+  /* =======================================================================
+   * TYPOGRAPHY
+   * SF Pro Display → Inter → system-ui.  SF Mono → JetBrains Mono.
+   * ===================================================================== */
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
+    "Inter", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  --font-mono:
+    ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code",
+    "Consolas", monospace;
+  --font-display: var(--font-sans);
 
-  /*
-   * Accent - Champagne Gold
-   * Refined, warm, understated - like aged brass on audio equipment
-   */
-  --accent: #C4A052;
-  --accent-muted: #9A7F42;
-  --accent-subtle: rgba(196, 160, 82, 0.12);
-  --accent-ghost: rgba(196, 160, 82, 0.06);
+  /* macOS-aligned type scale (slight upscale from 13-base → 14-base) */
+  --text-xs:   0.6875rem;  /* 11 */
+  --text-sm:   0.8125rem;  /* 13 */
+  --text-base: 0.875rem;   /* 14 */
+  --text-md:   0.9375rem;  /* 15 */
+  --text-lg:   1.0625rem;  /* 17 — SF Body */
+  --text-xl:   1.375rem;   /* 22 — SF Title 2 */
+  --text-2xl:  1.75rem;    /* 28 — SF Title 1 */
+  --text-3xl:  2.125rem;   /* 34 — SF Large Title */
 
-  /*
-   * Typography Scale - High Contrast Warm Grays
-   */
-  --text-primary: #F5F3EF;
-  --text-secondary: #A8A5A0;
-  --text-tertiary: #6B6864;
-  --text-muted: #4A4845;
-
-  /*
-   * Semantic Colors - Subtle, Professional
-   */
-  --status-recording: #C75450;
-  --status-recording-subtle: rgba(199, 84, 80, 0.15);
-  --status-recording-glow: rgba(199, 84, 80, 0.4);
-
-  --status-processing: #C4A052;
-  --status-processing-subtle: rgba(196, 160, 82, 0.15);
-
-  --status-success: #5C9A6B;
-  --status-success-subtle: rgba(92, 154, 107, 0.15);
-
-  --status-error: #B54A47;
-  --status-error-subtle: rgba(181, 74, 71, 0.15);
-
-  /*
-   * Borders & Dividers
-   */
-  --border-subtle: rgba(255, 255, 255, 0.06);
-  --border-default: rgba(255, 255, 255, 0.08);
-  --border-strong: rgba(255, 255, 255, 0.12);
-  --border-accent: rgba(196, 160, 82, 0.3);
-
-  /*
-   * Typography
-   * Inter for UI, JetBrains Mono for data/code
-   */
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-mono: 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
-
-  /* Type Scale */
-  --text-xs: 0.6875rem;   /* 11px */
-  --text-sm: 0.75rem;     /* 12px */
-  --text-base: 0.8125rem; /* 13px */
-  --text-md: 0.875rem;    /* 14px */
-  --text-lg: 1rem;        /* 16px */
-  --text-xl: 1.25rem;     /* 20px */
-
-  /*
-   * Spacing Scale
-   */
+  /* =======================================================================
+   * SPACING & RADII
+   * Larger radii for Liquid Glass (16 / 20 / 24) + legacy 4/6/8/12 kept.
+   * ===================================================================== */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -86,126 +46,255 @@
   --space-8: 32px;
   --space-10: 40px;
   --space-12: 48px;
+  --space-16: 64px;
 
-  /*
-   * Radii - Subtle, not bubbly
-   */
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
-  --radius-xl: 12px;
+  --radius-sm:   6px;
+  --radius-md:   10px;
+  --radius-lg:   14px;
+  --radius-xl:   18px;
+  --radius-2xl:  24px;
+  --radius-pill: 9999px;
   --radius-full: 9999px;
 
-  /*
-   * Shadows - Subtle depth, not dramatic
-   */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
-  --shadow-inner: inset 0 1px 2px rgba(0, 0, 0, 0.3);
+  /* =======================================================================
+   * MOTION — Apple system curves
+   * ===================================================================== */
+  --spring-out:   cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --spring-in:    cubic-bezier(0.55, 0, 0.1, 1);
+  --spring-inout: cubic-bezier(0.37, 0, 0.26, 1);
+  --spring-snap:  cubic-bezier(0.34, 1.56, 0.64, 1); /* overshoot — for play states */
 
-  /* Indicator glow - for the bubble */
-  --glow-idle: 0 0 12px rgba(196, 160, 82, 0.15);
-  --glow-recording: 0 0 20px rgba(199, 84, 80, 0.35);
-  --glow-processing: 0 0 16px rgba(196, 160, 82, 0.25);
-  --glow-success: 0 0 16px rgba(92, 154, 107, 0.3);
+  --ease-out:    var(--spring-out);
+  --ease-in-out: var(--spring-inout);
+  --ease-snap:   var(--spring-snap);
 
-  /*
-   * Motion - Precise, mechanical feel
-   */
-  --ease-out: cubic-bezier(0.33, 1, 0.68, 1);
-  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
-  --duration-fast: 150ms;
-  --duration-normal: 250ms;
-  --duration-slow: 400ms;
+  --duration-instant: 80ms;
+  --duration-fast:    160ms;
+  --duration-normal:  240ms;
+  --duration-slow:    420ms;
 }
 
-/* Light mode - system preference */
+/* ========================================================================
+ * DARK — DEFAULT
+ * Substrate sits under native vibrancy; foreground uses color-mix for
+ * translucent glass surfaces.
+ * ====================================================================== */
+:root,
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* Background substrate — exposed when vibrancy/acrylic is off */
+  --bg-deep:     #0B0B0F;
+  --bg-base:     #111116;
+  --bg-raised:   #18181F;
+  --bg-surface:  #1F1F28;
+  --bg-elevated: #262632;
+  --bg-hover:    #2E2E3A;
+
+  /* Liquid Glass substrate tint — blended under backdrop-filter */
+  --glass-tint:       rgba(28, 28, 38, 0.72);
+  --glass-tint-dim:   rgba(22, 22, 30, 0.60);
+  --glass-tint-heavy: rgba(14, 14, 20, 0.82);
+
+  /* Specular inner highlight for glass surfaces (thin bright edge) */
+  --glass-specular:   linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.10) 0%,
+    rgba(255, 255, 255, 0.02) 40%,
+    rgba(255, 255, 255, 0.00) 100%
+  );
+
+  /* Typography — warm neutrals, slightly desaturated for Liquid Glass */
+  --text-primary:   rgba(255, 255, 255, 0.95);
+  --text-secondary: rgba(235, 235, 245, 0.64);
+  --text-tertiary:  rgba(235, 235, 245, 0.40);
+  --text-muted:     rgba(235, 235, 245, 0.22);
+
+  /* Accent — Apple System Blue (dark) */
+  --accent:         #0A84FF;
+  --accent-hover:   #409CFF;
+  --accent-muted:   #0060DF;
+  --accent-subtle:  rgba(10, 132, 255, 0.16);
+  --accent-ghost:   rgba(10, 132, 255, 0.08);
+  --accent-ring:    rgba(10, 132, 255, 0.45);
+
+  /* Semantic — macOS system colors */
+  --status-recording:         #FF453A;
+  --status-recording-subtle:  rgba(255, 69, 58, 0.16);
+  --status-recording-glow:    rgba(255, 69, 58, 0.45);
+  --status-processing:        #FFD60A;
+  --status-processing-subtle: rgba(255, 214, 10, 0.16);
+  --status-refining:          #BF5AF2;
+  --status-refining-subtle:   rgba(191, 90, 242, 0.16);
+  --status-success:           #30D158;
+  --status-success-subtle:    rgba(48, 209, 88, 0.16);
+  --status-error:             #FF453A;
+  --status-error-subtle:      rgba(255, 69, 58, 0.16);
+
+  /* Borders — hairlines, stronger for glass edges */
+  --border-subtle:  rgba(255, 255, 255, 0.06);
+  --border-default: rgba(255, 255, 255, 0.10);
+  --border-strong:  rgba(255, 255, 255, 0.16);
+  --border-accent:  rgba(10, 132, 255, 0.40);
+  --border-glass:   rgba(255, 255, 255, 0.12);
+
+  /* Shadows — elevated glass, two-layer for depth */
+  --shadow-sm:    0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-md:    0 4px 16px rgba(0, 0, 0, 0.45);
+  --shadow-lg:    0 16px 48px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.35);
+  --shadow-xl:    0 32px 80px rgba(0, 0, 0, 0.65), 0 4px 12px rgba(0, 0, 0, 0.40);
+  --shadow-inner: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+
+  /* Indicator glows — for the overlay orb */
+  --glow-idle:       0 0 16px rgba(10, 132, 255, 0.18);
+  --glow-recording:  0 0 24px rgba(255, 69, 58, 0.45);
+  --glow-processing: 0 0 20px rgba(255, 214, 10, 0.35);
+  --glow-refining:   0 0 24px rgba(191, 90, 242, 0.40);
+  --glow-success:    0 0 20px rgba(48, 209, 88, 0.40);
+}
+
+/* ========================================================================
+ * LIGHT THEME
+ * ====================================================================== */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --bg-deep:     #F2F2F7;
+  --bg-base:     #F7F7FA;
+  --bg-raised:   #FFFFFF;
+  --bg-surface:  #FBFBFD;
+  --bg-elevated: #FFFFFF;
+  --bg-hover:    #EDEDF2;
+
+  --glass-tint:       rgba(255, 255, 255, 0.78);
+  --glass-tint-dim:   rgba(246, 246, 250, 0.64);
+  --glass-tint-heavy: rgba(255, 255, 255, 0.90);
+
+  --glass-specular: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.70) 0%,
+    rgba(255, 255, 255, 0.20) 40%,
+    rgba(255, 255, 255, 0.00) 100%
+  );
+
+  --text-primary:   rgba(0, 0, 0, 0.92);
+  --text-secondary: rgba(60, 60, 67, 0.70);
+  --text-tertiary:  rgba(60, 60, 67, 0.45);
+  --text-muted:     rgba(60, 60, 67, 0.22);
+
+  --accent:        #007AFF;
+  --accent-hover:  #0063CC;
+  --accent-muted:  #0051A8;
+  --accent-subtle: rgba(0, 122, 255, 0.12);
+  --accent-ghost:  rgba(0, 122, 255, 0.06);
+  --accent-ring:   rgba(0, 122, 255, 0.40);
+
+  --status-recording:         #FF3B30;
+  --status-recording-subtle:  rgba(255, 59, 48, 0.12);
+  --status-recording-glow:    rgba(255, 59, 48, 0.38);
+  --status-processing:        #FF9F0A;
+  --status-processing-subtle: rgba(255, 159, 10, 0.14);
+  --status-refining:          #AF52DE;
+  --status-refining-subtle:   rgba(175, 82, 222, 0.14);
+  --status-success:           #34C759;
+  --status-success-subtle:    rgba(52, 199, 89, 0.14);
+  --status-error:             #FF3B30;
+  --status-error-subtle:      rgba(255, 59, 48, 0.12);
+
+  --border-subtle:  rgba(0, 0, 0, 0.05);
+  --border-default: rgba(0, 0, 0, 0.08);
+  --border-strong:  rgba(0, 0, 0, 0.14);
+  --border-accent:  rgba(0, 122, 255, 0.35);
+  --border-glass:   rgba(0, 0, 0, 0.08);
+
+  --shadow-sm:    0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md:    0 4px 16px rgba(0, 0, 0, 0.10);
+  --shadow-lg:    0 16px 48px rgba(0, 0, 0, 0.16), 0 2px 6px rgba(0, 0, 0, 0.06);
+  --shadow-xl:    0 32px 80px rgba(0, 0, 0, 0.20), 0 4px 12px rgba(0, 0, 0, 0.10);
+  --shadow-inner: inset 0 1px 0 rgba(255, 255, 255, 0.60);
+
+  --glow-idle:       0 0 16px rgba(0, 122, 255, 0.15);
+  --glow-recording:  0 0 24px rgba(255, 59, 48, 0.40);
+  --glow-processing: 0 0 20px rgba(255, 159, 10, 0.30);
+  --glow-refining:   0 0 24px rgba(175, 82, 222, 0.35);
+  --glow-success:    0 0 20px rgba(52, 199, 89, 0.35);
+}
+
+/* System preference follow (only when no explicit [data-theme] is set) */
 @media (prefers-color-scheme: light) {
-  :root:not([data-theme="dark"]) {
-    --bg-deep: #FAFAF8;
-    --bg-base: #F5F4F2;
-    --bg-raised: #FFFFFF;
-    --bg-surface: #EEEDEB;
-    --bg-elevated: #E8E7E5;
-    --bg-hover: #E0DFDD;
+  :root:not([data-theme]) {
+    color-scheme: light;
 
-    --text-primary: #1A1918;
-    --text-secondary: #5C5A57;
-    --text-tertiary: #8A8885;
-    --text-muted: #B5B3B0;
+    --bg-deep:     #F2F2F7;
+    --bg-base:     #F7F7FA;
+    --bg-raised:   #FFFFFF;
+    --bg-surface:  #FBFBFD;
+    --bg-elevated: #FFFFFF;
+    --bg-hover:    #EDEDF2;
 
-    --border-subtle: rgba(0, 0, 0, 0.04);
+    --glass-tint:       rgba(255, 255, 255, 0.78);
+    --glass-tint-dim:   rgba(246, 246, 250, 0.64);
+    --glass-tint-heavy: rgba(255, 255, 255, 0.90);
+
+    --text-primary:   rgba(0, 0, 0, 0.92);
+    --text-secondary: rgba(60, 60, 67, 0.70);
+    --text-tertiary:  rgba(60, 60, 67, 0.45);
+    --text-muted:     rgba(60, 60, 67, 0.22);
+
+    --accent:        #007AFF;
+    --accent-hover:  #0063CC;
+    --accent-muted:  #0051A8;
+    --accent-subtle: rgba(0, 122, 255, 0.12);
+    --accent-ghost:  rgba(0, 122, 255, 0.06);
+
+    --border-subtle:  rgba(0, 0, 0, 0.05);
     --border-default: rgba(0, 0, 0, 0.08);
-    --border-strong: rgba(0, 0, 0, 0.12);
+    --border-strong:  rgba(0, 0, 0, 0.14);
+    --border-glass:   rgba(0, 0, 0, 0.08);
 
-    --accent-subtle: rgba(196, 160, 82, 0.15);
-    --accent-ghost: rgba(196, 160, 82, 0.08);
-
-    --status-recording-subtle: rgba(199, 84, 80, 0.12);
-    --status-processing-subtle: rgba(196, 160, 82, 0.12);
-    --status-success-subtle: rgba(92, 154, 107, 0.12);
-    --status-error-subtle: rgba(181, 74, 71, 0.12);
-
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08);
-    --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.12);
-    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.16);
+    --shadow-sm:    0 1px 2px rgba(0, 0, 0, 0.06);
+    --shadow-md:    0 4px 16px rgba(0, 0, 0, 0.10);
+    --shadow-lg:    0 16px 48px rgba(0, 0, 0, 0.16);
   }
 }
 
-/* Explicit light theme */
-:root[data-theme="light"] {
-  --bg-deep: #FAFAF8;
-  --bg-base: #F5F4F2;
-  --bg-raised: #FFFFFF;
-  --bg-surface: #EEEDEB;
-  --bg-elevated: #E8E7E5;
-  --bg-hover: #E0DFDD;
-
-  --text-primary: #1A1918;
-  --text-secondary: #5C5A57;
-  --text-tertiary: #8A8885;
-  --text-muted: #B5B3B0;
-
-  --border-subtle: rgba(0, 0, 0, 0.04);
-  --border-default: rgba(0, 0, 0, 0.08);
-  --border-strong: rgba(0, 0, 0, 0.12);
-
-  --accent-subtle: rgba(196, 160, 82, 0.15);
-  --accent-ghost: rgba(196, 160, 82, 0.08);
-
-  --status-recording-subtle: rgba(199, 84, 80, 0.12);
-  --status-processing-subtle: rgba(196, 160, 82, 0.12);
-  --status-success-subtle: rgba(92, 154, 107, 0.12);
-  --status-error-subtle: rgba(181, 74, 71, 0.12);
-
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08);
-  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.12);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.16);
+/* ========================================================================
+ * REUSABLE GLASS UTILITY CLASSES
+ * ====================================================================== */
+.glass-surface {
+  background: var(--glass-tint);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid var(--border-glass);
+  box-shadow: var(--shadow-lg), var(--shadow-inner);
 }
 
-/* Explicit dark theme (default) */
-:root[data-theme="dark"] {
-  --bg-deep: #0C0B0A;
-  --bg-base: #141311;
-  --bg-raised: #1A1917;
-  --bg-surface: #201E1C;
-  --bg-elevated: #262421;
-  --bg-hover: #2C2A27;
-
-  --text-primary: #F5F3EF;
-  --text-secondary: #A8A5A0;
-  --text-tertiary: #6B6864;
-  --text-muted: #4A4845;
-
-  --border-subtle: rgba(255, 255, 255, 0.06);
-  --border-default: rgba(255, 255, 255, 0.08);
-  --border-strong: rgba(255, 255, 255, 0.12);
+.glass-surface--dim {
+  background: var(--glass-tint-dim);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
 }
 
-/*
- * Base Resets
- */
+.glass-surface--heavy {
+  background: var(--glass-tint-heavy);
+  backdrop-filter: blur(60px) saturate(200%);
+  -webkit-backdrop-filter: blur(60px) saturate(200%);
+}
+
+/* Specular highlight pseudo — apply on element with position: relative */
+.glass-specular::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--glass-specular);
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+/* ========================================================================
+ * BASE RESETS
+ * ====================================================================== */
 *, *::before, *::after {
   margin: 0;
   padding: 0;
@@ -222,17 +311,18 @@ html, body, #root {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
-  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11", "ss01";
+  font-variant-numeric: tabular-nums;
   user-select: none;
   overflow: hidden;
 }
 
-/*
- * Scrollbar - Minimal, refined
- */
+/* ========================================================================
+ * SCROLLBAR — macOS overlay style
+ * ====================================================================== */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
@@ -241,11 +331,16 @@ html, body, #root {
 
 ::-webkit-scrollbar-thumb {
   background: var(--border-strong);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-pill);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  min-height: 40px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
+  background-clip: padding-box;
+  border: 2px solid transparent;
 }
 
 ::selection {
@@ -253,13 +348,31 @@ html, body, #root {
   color: var(--text-primary);
 }
 
-/* Focus states */
+/* Focus — Apple focus ring */
 :focus-visible {
-  outline: 1px solid var(--accent);
+  outline: 2px solid var(--accent-ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--accent-ring);
   outline-offset: 2px;
 }
 
-button:focus-visible {
-  outline: 1px solid var(--accent);
-  outline-offset: 2px;
+/* Reduced motion — suppress spring overshoot + long durations */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --spring-snap: var(--spring-out);
+    --duration-slow: var(--duration-fast);
+    --duration-normal: var(--duration-fast);
+  }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: var(--duration-fast) !important;
+  }
 }

@@ -75,6 +75,7 @@ export interface KeywordSuggestion {
 }
 
 export interface VttApi {
+  platform: "darwin" | "win32" | "linux" | "aix" | "freebsd" | "openbsd" | "sunos" | "android" | "haiku" | "cygwin" | "netbsd";
   onRecordingState: (cb: (state: "start" | "stop" | "cancel") => void) => () => void;
   onHotkeyMode: (cb: (mode: "ptt" | "ttt") => void) => () => void;
   sendAudioChunk: (chunk: ArrayBuffer) => void;

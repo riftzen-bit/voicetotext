@@ -42,6 +42,11 @@ function WindowControls() {
     api.windowIsMaximized().then(setIsMaximized);
   }, []);
 
+  // macOS renders native traffic lights via titleBarStyle: "hiddenInset".
+  // Returning null here avoids double controls; titlebar drag region still
+  // works because -webkit-app-region is on .settings-titlebar in CSS.
+  if (api?.platform === "darwin") return null;
+
   const handleMinimize = () => api?.windowMinimize();
   const handleMaximize = () => {
     api?.windowMaximize();
