@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { getApi, ModelStatusInfo } from "../../lib/ipc";
 import { useSettings } from "../../hooks/useSettings";
 import { Section, Row, Segmented, Toggle } from "./primitives";
+
+type PerModelStatus = ModelStatusInfo["status"];
 
 function formatBytes(mb: number): string {
   if (mb >= 1024) return `${(mb / 1024).toFixed(1)} GB`;
@@ -10,36 +12,76 @@ function formatBytes(mb: number): string {
 
 export default function EngineSection() {
   const { settings, loaded, updateSetting, modelCatalog } = useSettings();
-  const [status, setStatus] = useState<ModelStatusInfo | null>(null);
+  const [statuses, setStatuses] = useState<Record<string, PerModelStatus>>({});
+  const [loadedModel, setLoadedModel] = useState<string | null>(null);
   const [backendStatus, setBackendStatus] = useState("stopped");
+  const [runtimeLabel, setRuntimeLabel] = useState("");
+  const [downloadingModel, setDownloadingModel] = useState<string | null>(null);
   const [downloadProgress, setDownloadProgress] = useState<number | null>(null);
-  const [downloadLabel, setDownloadLabel] = useState("");
+
+  const refreshStatuses = useCallback(async () => {
+    const api = getApi();
+    if (!api) return;
+    const entries = await Promise.all(
+      modelCatalog.map(async (m) => {
+        try {
+          const info = await api.getModelStatus(m.value);
+          return [m.value, info] as const;
+        } catch {
+          return [m.value, null] as const;
+        }
+      })
+    );
+    const next: Record<string, PerModelStatus> = {};
+    let currentLoaded: string | null = null;
+    let runtimeStr = "";
+    for (const [value, info] of entries) {
+      if (!info) continue;
+      next[value] = info.status;
+      if (info.status === "loaded" && info.loaded_model) {
+        currentLoaded = info.loaded_model;
+        runtimeStr = `${info.device} · ${info.runtime?.compute_type ?? ""}`;
+      }
+    }
+    setStatuses(next);
+    setLoadedModel(currentLoaded);
+    if (runtimeStr) setRuntimeLabel(runtimeStr);
+  }, [modelCatalog]);
+
+  useEffect(() => {
+    if (modelCatalog.length === 0) return;
+    void refreshStatuses();
+  }, [modelCatalog, refreshStatuses]);
 
   useEffect(() => {
     const api = getApi();
     if (!api) return;
-
-    api.getModelStatus().then(setStatus).catch(() => {});
     api.getBackendStatus().then(setBackendStatus);
 
-    const unsubStatus = api.onBackendStatus((s) => setBackendStatus(s));
+    const unsubStatus = api.onBackendStatus((s) => {
+      setBackendStatus(s);
+      if (s === "ready" || s === "downloaded") void refreshStatuses();
+    });
+
     const unsubProg = api.onModelProgress((data) => {
       const p = data.progress as number;
-      if (typeof p === "number") {
-        setDownloadProgress(p);
-        setDownloadLabel(`Downloading ${Math.round(p * 100)}%`);
+      const file = data.file as string | undefined;
+      if (typeof p === "number") setDownloadProgress(p);
+      if (file && !downloadingModel) {
+        const match = modelCatalog.find((m) => file.toLowerCase().includes(m.value.toLowerCase()));
+        if (match) setDownloadingModel(match.value);
       }
     });
+
     const unsubEvt = api.onModelEvent((data) => {
       const type = data.type as string;
-      if (type === "load_complete") {
+      if (type === "download_complete" || type === "load_complete") {
         setDownloadProgress(null);
-        setDownloadLabel("");
-        api.getModelStatus().then(setStatus).catch(() => {});
-      } else if (type === "download_complete") {
-        setDownloadProgress(null);
-        setDownloadLabel("Downloaded");
-        api.getModelStatus().then(setStatus).catch(() => {});
+        setDownloadingModel(null);
+        void refreshStatuses();
+      } else if (type === "download_start") {
+        const model = data.model as string | undefined;
+        if (model) setDownloadingModel(model);
       }
     });
 
@@ -48,14 +90,17 @@ export default function EngineSection() {
       unsubProg();
       unsubEvt();
     };
-  }, []);
+  }, [modelCatalog, refreshStatuses, downloadingModel]);
 
   if (!loaded) return null;
 
   const api = getApi();
 
   const currentStatusLabel = (() => {
-    if (downloadLabel) return downloadLabel;
+    if (downloadingModel) {
+      const pct = downloadProgress !== null ? Math.round(downloadProgress * 100) : 0;
+      return `Downloading ${downloadingModel} · ${pct}%`;
+    }
     if (backendStatus === "ready") return "Ready";
     if (backendStatus === "loading") return "Loading model";
     if (backendStatus === "downloading") return "Downloading";
@@ -64,25 +109,37 @@ export default function EngineSection() {
   })();
 
   const statusClass =
-    backendStatus === "ready"
+    backendStatus === "ready" && !downloadingModel
       ? "is-ready"
-      : backendStatus === "loading" || backendStatus === "downloading"
+      : backendStatus === "loading" || downloadingModel
       ? "is-busy"
       : "";
+
+  const handleDownload = (model: string) => {
+    setDownloadingModel(model);
+    setDownloadProgress(0);
+    api?.startModelDownload(model);
+  };
+
+  const handleLoad = async (model: string) => {
+    await updateSetting("modelSize", model);
+    api?.loadModel(model);
+  };
 
   return (
     <Section
       num="02"
       eyebrow="Engine"
       title="Transcription model"
-      lede="VoiceToText runs Whisper locally on your GPU. Pick a model, choose a speed profile, and tell it what language to expect."
+      lede="VoiceToText runs Whisper locally on your GPU. Download a model, load it into memory, and it stays resident until you switch."
     >
       <div className="status-line">
         <span className={`status-dot ${statusClass}`} />
         <span>{currentStatusLabel}</span>
-        {status?.loaded_model && backendStatus === "ready" ? (
+        {loadedModel && backendStatus === "ready" && !downloadingModel ? (
           <span className="text-muted" style={{ marginLeft: "auto" }}>
-            {status.loaded_model} · {status.device} · {status.runtime?.compute_type}
+            {loadedModel}
+            {runtimeLabel ? ` · ${runtimeLabel}` : ""}
           </span>
         ) : null}
       </div>
@@ -93,12 +150,17 @@ export default function EngineSection() {
         </div>
       )}
 
-      <div className="subheading">Model</div>
+      <div className="subheading">Models</div>
 
       <div className="list">
         {modelCatalog.map((m, i) => {
-          const isActive = settings.modelSize === m.value;
-          const isLoaded = status?.loaded_model === m.value;
+          const status = statuses[m.value];
+          const isLoaded = status === "loaded";
+          const isLoading = status === "loading";
+          const isDownloaded = status === "downloaded";
+          const isDownloading = downloadingModel === m.value || status === "downloading";
+          const isNotDownloaded = status === "not_downloaded" || status === undefined;
+
           return (
             <div key={m.value} className="list-item">
               <span className="list-item-num">{(i + 1).toString().padStart(2, "0")}</span>
@@ -106,8 +168,19 @@ export default function EngineSection() {
                 <div className="list-item-title">
                   {m.label}
                   {isLoaded ? (
-                    <span className="text-accent mono" style={{ fontSize: 10, marginLeft: 8, letterSpacing: "0.2em" }}>
+                    <span
+                      className="text-accent mono"
+                      style={{ fontSize: 10, marginLeft: 8, letterSpacing: "0.2em" }}
+                    >
                       ACTIVE
+                    </span>
+                  ) : null}
+                  {m.recommended && !isLoaded ? (
+                    <span
+                      className="text-muted mono"
+                      style={{ fontSize: 10, marginLeft: 8, letterSpacing: "0.2em" }}
+                    >
+                      RECOMMENDED
                     </span>
                   ) : null}
                 </div>
@@ -116,21 +189,30 @@ export default function EngineSection() {
                 </div>
               </div>
               <div className="list-item-actions">
-                {!isActive && (
-                  <button
-                    className="btn"
-                    onClick={() => {
-                      updateSetting("modelSize", m.value);
-                      api?.loadModel(m.value);
-                    }}
-                  >
-                    Use
+                {isLoading && (
+                  <button className="btn" disabled>
+                    Loading…
                   </button>
                 )}
-                {isActive && !isLoaded && (
+                {isDownloading && !isLoading && (
+                  <button className="btn" disabled>
+                    {downloadProgress !== null
+                      ? `${Math.round(downloadProgress * 100)}%`
+                      : "Downloading…"}
+                  </button>
+                )}
+                {isDownloaded && !isLoaded && !isLoading && (
                   <button
                     className="btn btn--primary"
-                    onClick={() => api?.startModelDownload(m.value)}
+                    onClick={() => void handleLoad(m.value)}
+                  >
+                    Load
+                  </button>
+                )}
+                {isNotDownloaded && !isDownloading && (
+                  <button
+                    className="btn btn--primary"
+                    onClick={() => handleDownload(m.value)}
                   >
                     Download
                   </button>

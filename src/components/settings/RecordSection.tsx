@@ -62,6 +62,13 @@ export default function RecordSection() {
         />
       </Row>
 
+      <Row label="Code-mode hotkey" hint="Press once to skip AI refinement on the next dictation.">
+        <KeyCapture
+          value={settings.codeModeHotkey || ""}
+          onChange={(v) => updateSetting("codeModeHotkey", v)}
+        />
+      </Row>
+
       <Row label="Auto-paste" hint="Paste the transcript into the focused field the moment it arrives.">
         <Toggle
           checked={settings.autoPaste}
