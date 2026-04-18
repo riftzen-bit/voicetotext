@@ -1,7 +1,13 @@
 /*
- * VoiceToText Overlay
- * Design: Premium hardware status indicator
- * Inspiration: Studio monitor power LEDs, high-end audio equipment
+ * VoiceToText Overlay — Liquid Glass pill
+ *
+ * Collapsed: 56 px circle showing a state-tinted orb.
+ * Expanded: 280 px pill with live waveform + phase label.
+ *
+ * Expands on hover (idle) or automatically while recording / processing /
+ * refining. Animation uses Apple spring bezier. Backdrop filter = blur 40 +
+ * saturate 180, tinted by --glass-tint. A pseudo-element paints the specular
+ * inner highlight that gives glass its hardware-like edge.
  */
 
 .overlay-root {
@@ -14,282 +20,268 @@
   pointer-events: none;
 }
 
-/*
- * The Indicator - A precision-machined status light
- * Feels like brushed aluminum housing with a subtle LED
- */
-.overlay-indicator {
+/* =======================================================================
+ * PILL
+ * ===================================================================== */
+.overlay-pill {
   pointer-events: auto;
   -webkit-app-region: drag;
   position: relative;
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  cursor: grab;
 
-  /* Machined metal bezel effect */
-  background:
-    linear-gradient(145deg,
-      var(--bg-elevated) 0%,
-      var(--bg-raised) 50%,
-      var(--bg-base) 100%
-    );
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  padding-right: 14px;
 
-  /* Subtle inner bevel */
+  height: 56px;
+  width: 56px;
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  cursor: pointer;
+
+  background: var(--glass-tint);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid var(--border-glass);
+
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.2),
-    0 2px 8px rgba(0, 0, 0, 0.4),
-    0 0 0 1px var(--border-subtle);
+    0 8px 28px rgba(0, 0, 0, 0.35),
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.25) inset;
+
+  transition:
+    width var(--duration-normal) var(--spring-out),
+    background var(--duration-normal) var(--ease-out),
+    box-shadow var(--duration-normal) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
+}
+
+.overlay-pill.expanded {
+  width: 260px;
+}
+
+.overlay-pill:hover {
+  transform: scale(1.02);
+  box-shadow:
+    0 12px 36px rgba(0, 0, 0, 0.45),
+    0 1px 0 rgba(255, 255, 255, 0.08) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.25) inset;
+}
+
+.overlay-pill:active {
+  transform: scale(0.985);
+}
+
+/* Specular highlight — the thin bright arc across the top of real glass */
+.overlay-specular {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: var(--glass-specular);
+  mix-blend-mode: overlay;
+  opacity: 0.65;
+}
+
+/* =======================================================================
+ * STATE ORB (always visible — leading element of the pill)
+ * ===================================================================== */
+.overlay-orb {
+  position: relative;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
 
   display: flex;
   align-items: center;
   justify-content: center;
 
+  background:
+    radial-gradient(
+      circle at 35% 30%,
+      rgba(255, 255, 255, 0.12) 0%,
+      rgba(0, 0, 0, 0.00) 60%
+    ),
+    rgba(0, 0, 0, 0.28);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.10),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.40);
   transition:
-    transform var(--duration-normal) var(--ease-out),
+    background var(--duration-normal) var(--ease-out),
     box-shadow var(--duration-normal) var(--ease-out);
 }
 
-.overlay-indicator:hover {
-  cursor: grab;
-  transform: scale(1.04);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.2),
-    0 4px 16px rgba(0, 0, 0, 0.5),
-    0 0 0 1px var(--border-default);
-}
-
-.overlay-indicator:active {
-  cursor: grabbing;
-  transform: scale(0.98);
-}
-
-/*
- * Inner LED Core - The actual light element
- */
-.indicator-core {
-  position: relative;
-  width: 20px;
-  height: 20px;
+.overlay-orb-core {
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
+  background: var(--text-muted);
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-normal) var(--ease-out),
+    transform var(--duration-normal) var(--ease-out);
+}
+
+/* =======================================================================
+ * BODY (waveform + label) — only visible when expanded
+ * ===================================================================== */
+.overlay-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+
+  opacity: 0;
+  transform: translateX(-4px);
+  transition:
+    opacity var(--duration-fast) var(--ease-out),
+    transform var(--duration-normal) var(--spring-out);
+}
+
+.overlay-pill.expanded .overlay-body {
+  opacity: 1;
+  transform: translateX(0);
+  transition-delay: 80ms; /* wait until pill has grown past orb width */
+}
+
+.overlay-wave {
+  width: 100%;
+  height: 22px;
   display: flex;
   align-items: center;
-  justify-content: center;
-
-  /* Recessed LED well */
-  background: var(--bg-deep);
-  box-shadow:
-    inset 0 1px 3px rgba(0, 0, 0, 0.5),
-    0 0 0 1px var(--border-subtle);
-
-  transition: all var(--duration-normal) var(--ease-out);
+  opacity: 0.92;
 }
 
-/*
- * LED Light Element
- */
-.indicator-led {
-  position: absolute;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--text-muted);
-  transition: all var(--duration-normal) var(--ease-out);
+.overlay-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  white-space: nowrap;
+  font-feature-settings: "tnum";
 }
 
-/*
- * State: IDLE
- * Subtle warm glow indicating standby
- */
-.overlay-indicator.idle .indicator-led {
-  background: var(--accent-muted);
-  box-shadow:
-    0 0 4px var(--accent-subtle),
-    inset 0 -1px 2px rgba(0, 0, 0, 0.3);
-  animation: idle-breathe 4s var(--ease-in-out) infinite;
+/* =======================================================================
+ * STATE STYLES — orb tint + tooltip behaviour
+ * Legacy class names (.idle, .recording, .processing, .refining, .done,
+ * .error, .not-ready) are preserved so existing transcript-state flow works.
+ * ===================================================================== */
+
+/* IDLE — Apple blue, slow breathe */
+.overlay-pill.idle .overlay-orb-core {
+  background: var(--accent);
+  box-shadow: var(--glow-idle);
+  animation: orb-breathe 4s var(--ease-in-out) infinite;
 }
 
-@keyframes idle-breathe {
-  0%, 100% {
-    opacity: 0.6;
-    box-shadow: 0 0 4px var(--accent-subtle);
-  }
-  50% {
-    opacity: 1;
-    box-shadow: 0 0 8px var(--accent-subtle);
-  }
+@keyframes orb-breathe {
+  0%, 100% { opacity: 0.75; transform: scale(0.95); }
+  50%      { opacity: 1;    transform: scale(1.05); }
 }
 
-/*
- * State: RECORDING
- * Clear red indicator - professional, not alarming
- */
-.overlay-indicator.recording .indicator-led {
+/* RECORDING — system red, glow ring, pulse */
+.overlay-pill.recording .overlay-orb-core {
   background: var(--status-recording);
   box-shadow:
-    0 0 8px var(--status-recording-glow),
-    0 0 16px var(--status-recording-subtle),
-    inset 0 -1px 2px rgba(0, 0, 0, 0.2);
-  animation: recording-pulse 1.5s var(--ease-in-out) infinite;
+    0 0 10px var(--status-recording-glow),
+    0 0 20px var(--status-recording-subtle);
+  animation: orb-pulse 1.4s var(--ease-in-out) infinite;
 }
-
-.overlay-indicator.recording .indicator-core {
+.overlay-pill.recording .overlay-orb {
   box-shadow:
-    inset 0 1px 3px rgba(0, 0, 0, 0.4),
-    0 0 0 1px rgba(199, 84, 80, 0.2),
-    0 0 12px var(--status-recording-subtle);
+    inset 0 1px 0 rgba(255, 255, 255, 0.10),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.40),
+    0 0 0 1px rgba(255, 69, 58, 0.30);
+}
+.overlay-pill.recording .overlay-label { color: var(--status-recording); }
+
+@keyframes orb-pulse {
+  0%, 100% { transform: scale(1);    box-shadow: 0 0 10px var(--status-recording-glow); }
+  50%      { transform: scale(1.15); box-shadow: 0 0 18px var(--status-recording-glow); }
 }
 
-@keyframes recording-pulse {
-  0%, 100% {
-    transform: scale(1);
-    box-shadow:
-      0 0 6px var(--status-recording-glow),
-      0 0 12px var(--status-recording-subtle);
-  }
-  50% {
-    transform: scale(1.1);
-    box-shadow:
-      0 0 10px var(--status-recording-glow),
-      0 0 20px var(--status-recording-subtle);
-  }
-}
-
-/*
- * State: PROCESSING
- * Amber processing indicator
- */
-.overlay-indicator.processing .indicator-led {
+/* PROCESSING — amber, spinning halo */
+.overlay-pill.processing .overlay-orb-core {
   background: var(--status-processing);
-  box-shadow:
-    0 0 6px var(--status-processing-subtle),
-    inset 0 -1px 2px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 0 10px var(--status-processing-subtle);
 }
-
-.overlay-indicator.processing .indicator-core {
-  animation: processing-spin 2s linear infinite;
+.overlay-pill.processing .overlay-orb::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 1.5px solid transparent;
+  border-top-color: var(--status-processing);
+  border-right-color: var(--status-processing);
+  animation: orb-spin 1.6s linear infinite;
 }
+.overlay-pill.processing .overlay-label { color: var(--status-processing); }
 
-@keyframes processing-spin {
+@keyframes orb-spin {
   from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  to   { transform: rotate(360deg); }
 }
 
-/* Processing spinner ring */
-.overlay-indicator.processing .indicator-core::after {
-  content: '';
+/* REFINING — purple (AI), faster halo */
+.overlay-pill.refining .overlay-orb-core {
+  background: var(--status-refining);
+  box-shadow: 0 0 10px var(--glow-refining);
+}
+.overlay-pill.refining .overlay-orb::after {
+  content: "";
   position: absolute;
-  inset: -4px;
+  inset: -3px;
   border-radius: 50%;
   border: 1.5px solid transparent;
-  border-top-color: var(--accent);
-  border-right-color: var(--accent);
-  opacity: 0.6;
+  border-top-color: var(--status-refining);
+  border-right-color: var(--status-refining);
+  animation: orb-spin 1.1s linear infinite;
 }
+.overlay-pill.refining .overlay-label { color: var(--status-refining); }
 
-/*
- * State: REFINING (AI Processing)
- * Blue/purple indicator for AI refinement
- */
-.overlay-indicator.refining .indicator-led {
-  background: #7c3aed;
-  box-shadow:
-    0 0 6px rgba(124, 58, 237, 0.6),
-    inset 0 -1px 2px rgba(0, 0, 0, 0.2);
-}
-
-.overlay-indicator.refining .indicator-core {
-  animation: processing-spin 1.5s linear infinite;
-}
-
-.overlay-indicator.refining .indicator-core::after {
-  content: '';
-  position: absolute;
-  inset: -4px;
-  border-radius: 50%;
-  border: 1.5px solid transparent;
-  border-top-color: #7c3aed;
-  border-right-color: #a78bfa;
-  opacity: 0.8;
-}
-
-/*
- * State: DONE (Success)
- * Brief green confirmation
- */
-.overlay-indicator.done .indicator-led {
+/* DONE — green flash */
+.overlay-pill.done .overlay-orb-core {
   background: var(--status-success);
-  box-shadow:
-    0 0 8px var(--status-success-subtle),
-    inset 0 -1px 2px rgba(0, 0, 0, 0.2);
-  animation: success-flash 400ms var(--ease-out);
+  box-shadow: 0 0 12px var(--glow-success);
+  animation: orb-flash 420ms var(--spring-out);
+}
+.overlay-pill.done .overlay-label { color: var(--status-success); }
+
+@keyframes orb-flash {
+  0%   { transform: scale(1.4); box-shadow: 0 0 20px var(--glow-success); }
+  100% { transform: scale(1); }
 }
 
-@keyframes success-flash {
-  0% {
-    transform: scale(1.3);
-    box-shadow: 0 0 16px var(--status-success-subtle);
-  }
-  100% {
-    transform: scale(1);
-  }
-}
-
-/*
- * State: ERROR
- * Clear but not aggressive error indication
- */
-.overlay-indicator.error .indicator-led {
+/* ERROR — red blink twice */
+.overlay-pill.error .overlay-orb-core {
   background: var(--status-error);
-  box-shadow:
-    0 0 6px var(--status-error-subtle),
-    inset 0 -1px 2px rgba(0, 0, 0, 0.2);
-  animation: error-blink 300ms var(--ease-in-out) 2;
+  box-shadow: 0 0 10px var(--status-recording-glow);
+  animation: orb-blink 320ms var(--ease-in-out) 2;
 }
+.overlay-pill.error .overlay-label { color: var(--status-error); }
 
-@keyframes error-blink {
+@keyframes orb-blink {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+  50%      { opacity: 0.35; }
 }
 
-/*
- * State: Model Not Ready (Warning)
- * Dim amber to indicate waiting for setup
- */
-.overlay-indicator.not-ready .indicator-led {
+/* NOT-READY — dim breathing dot (model not loaded yet) */
+.overlay-pill.not-ready .overlay-orb-core {
   background: var(--text-muted);
   box-shadow: none;
-  animation: not-ready-pulse 2s var(--ease-in-out) infinite;
+  animation: orb-dim 2s var(--ease-in-out) infinite;
+}
+.overlay-pill.not-ready .overlay-label {
+  color: var(--text-tertiary);
+  font-weight: 500;
 }
 
-@keyframes not-ready-pulse {
-  0%, 100% { opacity: 0.3; }
-  50% { opacity: 0.6; }
-}
-
-/*
- * Tooltip on hover
- */
-.overlay-indicator::after {
-  content: attr(data-tooltip);
-  position: absolute;
-  right: calc(100% + 8px);
-  top: 50%;
-  transform: translateY(-50%);
-  padding: 6px 10px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  font-size: var(--text-xs);
-  color: var(--text-secondary);
-  white-space: nowrap;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity var(--duration-fast) var(--ease-out);
-}
-
-.overlay-indicator:hover::after {
-  opacity: 1;
+@keyframes orb-dim {
+  0%, 100% { opacity: 0.35; }
+  50%      { opacity: 0.65; }
 }

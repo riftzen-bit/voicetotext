@@ -27,31 +27,36 @@ export default function Waveform({ level, active, width = 120, height = 24 }: Wa
     canvas.height = height * dpr;
     ctx.scale(dpr, dpr);
 
+    const root = document.documentElement;
+    // Resolve once per effect run — getComputedStyle inside the RAF loop
+    // thrashes the style engine and shows up in profiles on low-end GPUs.
+    const activeColor =
+      getComputedStyle(root).getPropertyValue("--status-recording").trim() || "#FF453A";
+    const idleColor =
+      getComputedStyle(root).getPropertyValue("--text-muted").trim() || "rgba(235,235,245,0.22)";
+
     const draw = () => {
       ctx.clearRect(0, 0, width, height);
 
       const bars = barsRef.current;
       const barW = (width - (BAR_COUNT - 1) * BAR_GAP) / BAR_COUNT;
-      const root = document.documentElement;
+
+      ctx.fillStyle = active ? activeColor : idleColor;
 
       for (let i = 0; i < BAR_COUNT; i++) {
         if (active) {
-          // Add a "breathing" sine wave effect mixed with the actual audio level
+          // Breathing sine wave blended with live audio level.
           const time = Date.now() / 150;
           const basePulse = 0.05 + Math.sin(time + i * 0.4) * 0.03;
           const target = Math.max(basePulse, Math.min(1, level * 1.5) * (0.4 + Math.random() * 0.6));
-          bars[i] += (target - bars[i]) * 0.35; // faster, smoother easing
+          bars[i] += (target - bars[i]) * 0.35;
         } else {
-          bars[i] *= 0.82; // faster drop-off
+          bars[i] *= 0.82;
         }
 
         const barH = Math.max(1.5, bars[i] * height);
         const x = i * (barW + BAR_GAP);
         const y = (height - barH) / 2;
-
-        ctx.fillStyle = active
-          ? getComputedStyle(root).getPropertyValue("--red").trim()
-          : getComputedStyle(root).getPropertyValue("--fg-4").trim();
 
         ctx.beginPath();
         ctx.roundRect(x, y, barW, barH, 1);
