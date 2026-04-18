@@ -9,6 +9,7 @@ export interface TranscriptionMessage {
     | "result"
     | "transcribing"
     | "empty"
+    | "filtered"
     | "error"
     | "cancelled"
     | "pong"
@@ -19,6 +20,7 @@ export interface TranscriptionMessage {
   duration?: number;
   segments?: Array<{ start: number; end: number; text: string }>;
   message?: string;
+  reason?: "hallucination" | "low_confidence" | "too_short";
   session_id?: string;
   last_seq?: number;
   state?: "recording" | "processing" | "done";
@@ -172,7 +174,13 @@ export function useWebSocket(autoConnect = true) {
         }
 
         // A parked result flushed on hello counts as terminal delivery.
-        if (msg.type === "result" || msg.type === "empty" || msg.type === "cancelled") {
+        if (
+          msg.type === "result" ||
+          msg.type === "empty" ||
+          msg.type === "filtered" ||
+          msg.type === "error" ||
+          msg.type === "cancelled"
+        ) {
           helloInFlight.current = false;
         }
         setLastMessage(msg);

@@ -27,7 +27,7 @@ from config import (
     TRANSCRIBE_EXECUTOR_WORKERS,
     WHISPER_MODEL,
 )
-from transcriber import Transcriber, TranscriptionResult
+from transcriber import Transcriber, TranscriptionResult, FilteredResult
 from audio_processor import AudioBuffer
 from model_manager import (
     check_model_downloaded,
@@ -651,7 +651,7 @@ async def _run_transcription(ws: WebSocket, session: _TranscribeSession) -> None
 
     loop = asyncio.get_running_loop()
     try:
-        result: TranscriptionResult | None = await loop.run_in_executor(
+        result: TranscriptionResult | FilteredResult | None = await loop.run_in_executor(
             _transcribe_executor, transcriber.transcribe, audio
         )
     except Exception:
@@ -665,7 +665,21 @@ async def _run_transcription(ws: WebSocket, session: _TranscribeSession) -> None
         return
 
     if result is None:
-        payload = {"type": "empty", "message": "No speech detected"}
+        payload = {"type": "empty", "message": "No speech detected. Try speaking closer to the mic or a bit louder."}
+    elif isinstance(result, FilteredResult):
+        messages = {
+            "hallucination": "Filtered a likely Whisper hallucination. If this was real speech, add the phrase to your keyword corrections.",
+            "low_confidence": "Filtered a very low-confidence result.",
+            "too_short": "Recording was too short to transcribe. Hold the hotkey a little longer.",
+        }
+        payload = {
+            "type": "filtered",
+            "reason": result.reason,
+            "text": result.text,
+            "message": messages.get(result.reason, "Transcription was filtered."),
+            "duration": result.duration,
+            "language_probability": result.language_probability,
+        }
     else:
         payload = {"type": "result", **asdict(result)}
 

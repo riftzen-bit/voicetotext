@@ -189,6 +189,20 @@ class TranscriptionResult:
     duration: float = 0.0
 
 
+@dataclass
+class FilteredResult:
+    """
+    Emitted when Whisper produced text but the post-filters rejected it
+    (hallucination, low confidence, etc). The raw text is preserved so the
+    UI can show the user exactly what was suppressed instead of a vague
+    "no speech detected" message.
+    """
+    reason: str
+    text: str
+    duration: float = 0.0
+    language_probability: float = 0.0
+
+
 @dataclass(frozen=True)
 class TranscriptionSettings:
     profile: str
@@ -295,7 +309,7 @@ class Transcriber:
         self,
         audio: np.ndarray,
         duration: float,
-    ) -> TranscriptionResult | None:
+    ) -> TranscriptionResult | FilteredResult | None:
         if self._model is None:
             raise RuntimeError("Model not loaded")
 
@@ -385,7 +399,12 @@ class Transcriber:
                 full_text[:100],
                 duration,
             )
-            return None
+            return FilteredResult(
+                reason="hallucination",
+                text=full_text,
+                duration=round(duration, 3),
+                language_probability=round(info.language_probability, 4),
+            )
 
         # Filter only when confidence is extremely low AND text is a single word.
         # Previous cutoff (prob<0.3, words<3) discarded legitimate short utterances
@@ -396,7 +415,12 @@ class Transcriber:
                 full_text[:50],
                 info.language_probability * 100,
             )
-            return None
+            return FilteredResult(
+                reason="low_confidence",
+                text=full_text,
+                duration=round(duration, 3),
+                language_probability=round(info.language_probability, 4),
+            )
 
         return TranscriptionResult(
             text=full_text,
@@ -427,14 +451,18 @@ class Transcriber:
             self._model = None
             self._model_name = ""
 
-    def transcribe(self, audio: np.ndarray) -> TranscriptionResult | None:
+    def transcribe(self, audio: np.ndarray) -> TranscriptionResult | FilteredResult | None:
         duration = len(audio) / SAMPLE_RATE
 
         log.info("Received audio: %.2fs (%d samples)", duration, len(audio))
 
         if duration < MIN_AUDIO_LENGTH:
             log.debug("Audio too short (%.2fs < %.2fs), skipping", duration, MIN_AUDIO_LENGTH)
-            return None
+            return FilteredResult(
+                reason="too_short",
+                text="",
+                duration=round(duration, 3),
+            )
 
         # Convert to float32 if needed
         audio = audio.astype(np.float32)

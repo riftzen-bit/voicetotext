@@ -248,7 +248,13 @@ export function useTranscription(enableWs = true) {
   const handleWsMessage = useCallback(
     async (msg: TranscriptionMessage) => {
       // Clear processing timeout on any terminal response
-      if (msg.type === "result" || msg.type === "empty" || msg.type === "error" || msg.type === "cancelled") {
+      if (
+        msg.type === "result" ||
+        msg.type === "empty" ||
+        msg.type === "filtered" ||
+        msg.type === "error" ||
+        msg.type === "cancelled"
+      ) {
         if (processingTimeoutRef.current) {
           clearTimeout(processingTimeoutRef.current);
           processingTimeoutRef.current = null;
@@ -342,6 +348,26 @@ export function useTranscription(enableWs = true) {
             setCurrentText("");
             setPhase("idle");
           }, 3500);
+          break;
+        }
+
+        case "filtered": {
+          // Backend filtered the transcription (hallucination / low confidence /
+          // too short). Show the filter reason AND the text that was filtered
+          // so the user knows what was suppressed and can recover it if the
+          // filter was wrong.
+          playSound("error");
+          const preview = msg.text ? `"${msg.text.slice(0, 120)}"` : "";
+          const note = preview
+            ? `${msg.message || "Filtered"} — ${preview}`
+            : (msg.message || "Transcription was filtered.");
+          setCurrentText(note);
+          setPhase("error");
+          phaseRef.current = "idle";
+          setTimeout(() => {
+            setCurrentText("");
+            setPhase("idle");
+          }, 5000);
           break;
         }
 
