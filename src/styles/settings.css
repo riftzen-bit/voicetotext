@@ -507,6 +507,100 @@
   font-style: italic;
 }
 
+.list-item--clickable {
+  cursor: pointer;
+  transition: background 120ms var(--ease-out);
+  margin: 0 -12px;
+  padding-left: 12px;
+  padding-right: 12px;
+  border-radius: var(--radius-sm, 4px);
+}
+
+.list-item--clickable:hover {
+  background: var(--bg-raised, rgba(255, 255, 255, 0.02));
+}
+
+.list-item--clickable:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+/* ---------- History transcript modal ---------- */
+
+.history-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  animation: modal-fade-in 140ms var(--ease-out);
+}
+
+@keyframes modal-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.history-modal {
+  width: min(640px, 100%);
+  max-height: calc(100vh - 64px);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg, 10px);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  animation: modal-rise 160ms var(--ease-out);
+  overflow: hidden;
+}
+
+@keyframes modal-rise {
+  from { opacity: 0; transform: translateY(8px) scale(0.99); }
+  to   { opacity: 1; transform: translateY(0)   scale(1); }
+}
+
+.history-modal__head {
+  padding: 20px 24px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.history-modal__eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin-bottom: 6px;
+}
+
+.history-modal__meta {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.history-modal__body {
+  padding: 20px 24px;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.history-modal__foot {
+  padding: 14px 24px;
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
 /* ---------- Accent swatches ---------- */
 
 .swatch-row {

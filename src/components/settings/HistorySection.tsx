@@ -26,6 +26,17 @@ function formatTimestamp(ts: number): string {
   return d.toLocaleDateString([], { month: "short", day: "numeric" });
 }
 
+function formatFullTimestamp(ts: number): string {
+  return new Date(ts).toLocaleString([], {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
+
 function formatDuration(seconds: number | undefined): string {
   if (!seconds) return "";
   if (seconds < 60) return `${seconds.toFixed(1)}s`;
@@ -35,6 +46,8 @@ function formatDuration(seconds: number | undefined): string {
 export default function HistorySection() {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [selected, setSelected] = useState<HistoryEntry | null>(null);
+  const [copiedTick, setCopiedTick] = useState(false);
 
   useEffect(() => {
     const api = getApi();
@@ -51,6 +64,15 @@ export default function HistorySection() {
     });
     return () => unsub();
   }, []);
+
+  useEffect(() => {
+    if (!selected) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSelected(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selected]);
 
   const api = getApi();
 
@@ -77,12 +99,25 @@ export default function HistorySection() {
     URL.revokeObjectURL(url);
   };
 
+  const copySelected = () => {
+    if (!selected) return;
+    navigator.clipboard?.writeText(selected.text);
+    setCopiedTick(true);
+    setTimeout(() => setCopiedTick(false), 1200);
+  };
+
+  const deleteSelected = () => {
+    if (!selected) return;
+    api?.deleteHistory(selected.id);
+    setSelected(null);
+  };
+
   return (
     <Section
       num="06"
       eyebrow="History"
       title="Recent transcriptions"
-      lede="Everything you've dictated, stored only on this machine."
+      lede="Everything you've dictated, stored only on this machine. Click a row to read the full transcript."
     >
       {loaded && history.length > 0 && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24, paddingBottom: 24, borderBottom: "1px solid var(--border-subtle)" }}>
@@ -155,7 +190,19 @@ export default function HistorySection() {
             .reverse()
             .slice(0, 100)
             .map((h, i) => (
-              <div key={h.id} className="list-item">
+              <div
+                key={h.id}
+                className="list-item list-item--clickable"
+                role="button"
+                tabIndex={0}
+                onClick={() => setSelected(h)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setSelected(h);
+                  }
+                }}
+              >
                 <span className="list-item-num">
                   {(i + 1).toString().padStart(2, "0")}
                 </span>
@@ -178,24 +225,73 @@ export default function HistorySection() {
                     {h.refined ? " · refined" : ""}
                   </div>
                 </div>
-                <div className="list-item-actions">
+                <div className="list-item-actions" onClick={(e) => e.stopPropagation()}>
                   <button
                     type="button"
                     className="btn btn--ghost"
-                    onClick={() => navigator.clipboard?.writeText(h.text)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigator.clipboard?.writeText(h.text);
+                    }}
                   >
                     Copy
                   </button>
                   <button
                     type="button"
                     className="btn btn--danger"
-                    onClick={() => api?.deleteHistory(h.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      api?.deleteHistory(h.id);
+                    }}
                   >
                     Remove
                   </button>
                 </div>
               </div>
             ))}
+        </div>
+      )}
+
+      {selected && (
+        <div
+          className="history-modal-backdrop"
+          onClick={() => setSelected(null)}
+          role="presentation"
+        >
+          <div
+            className="history-modal"
+            role="dialog"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="history-modal__head">
+              <div className="history-modal__eyebrow mono">Transcript</div>
+              <div className="history-modal__meta">
+                {formatFullTimestamp(selected.timestamp)}
+                {selected.duration ? ` · ${formatDuration(selected.duration)}` : ""}
+                {selected.language && selected.language !== "unknown" ? ` · ${selected.language}` : ""}
+                {selected.refined ? " · refined" : ""}
+                {typeof selected.confidence === "number" ? ` · ${Math.round(selected.confidence * 100)}% conf` : ""}
+              </div>
+            </div>
+
+            <div className="history-modal__body">
+              {selected.text}
+            </div>
+
+            <div className="history-modal__foot">
+              <button type="button" className="btn" onClick={copySelected}>
+                {copiedTick ? "Copied" : "Copy"}
+              </button>
+              <button type="button" className="btn btn--danger" onClick={deleteSelected}>
+                Delete
+              </button>
+              <div style={{ flex: 1 }} />
+              <button type="button" className="btn btn--ghost" onClick={() => setSelected(null)}>
+                Close
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </Section>
