@@ -58,24 +58,9 @@ export default function SettingsView() {
   return (
     <div className="settings-shell">
       <div className="settings-titlebar">
-        <div className="titlebar-left">
-          <button
-            type="button"
-            className="window-btn titlebar-toggle"
-            onClick={() => setNavCollapsed((c) => !c)}
-            aria-label={navCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            title={navCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            <svg viewBox="0 0 12 12" fill="none" aria-hidden="true">
-              <line x1="2" y1="3" x2="10" y2="3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-              <line x1="2" y1="6" x2="10" y2="6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-              <line x1="2" y1="9" x2="10" y2="9" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-            </svg>
-          </button>
-          <div className="settings-title">
-            <span className="settings-title-accent">●</span>
-            VoiceToText · Settings
-          </div>
+        <div className="settings-title">
+          <span className="settings-title-accent">●</span>
+          VoiceToText · Settings
         </div>
         <div className="window-controls">
           <button
@@ -104,7 +89,24 @@ export default function SettingsView() {
 
       <div className={`settings-body${navCollapsed ? " nav-collapsed" : ""}`}>
         <nav className={`settings-nav${navCollapsed ? " is-collapsed" : ""}`}>
-          <div className="nav-eyebrow">Sections</div>
+          <div className="nav-header">
+            <div className="nav-eyebrow">Sections</div>
+            <button
+              type="button"
+              className="nav-collapse-btn"
+              onClick={() => setNavCollapsed((c) => !c)}
+              aria-label={navCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              title={navCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              <svg viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                {navCollapsed ? (
+                  <polyline points="4.5,2.5 8,6 4.5,9.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                ) : (
+                  <polyline points="7.5,2.5 4,6 7.5,9.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                )}
+              </svg>
+            </button>
+          </div>
           {NAV.map((item, i) => (
             <button
               key={item.id}

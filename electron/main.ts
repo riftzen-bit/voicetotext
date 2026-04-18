@@ -27,6 +27,7 @@ function createOverlayWindow(): BrowserWindow {
     height: 72,
     x: screenW - 340,
     y: 20,
+    show: false,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
@@ -34,6 +35,7 @@ function createOverlayWindow(): BrowserWindow {
     resizable: false,
     focusable: false,
     hasShadow: false,
+    backgroundColor: "#00000000",
     webPreferences: {
       preload: PRELOAD_PATH,
       contextIsolation: true,
@@ -42,6 +44,10 @@ function createOverlayWindow(): BrowserWindow {
   });
 
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+
+  win.once("ready-to-show", () => {
+    win.show();
+  });
 
   if (VITE_DEV_URL) {
     win.loadURL(`${VITE_DEV_URL}#/overlay`);
@@ -62,11 +68,16 @@ function createSettingsWindow(): BrowserWindow {
     frame: false,
     resizable: true,
     icon: appIcon,
+    backgroundColor: "#111111",
     webPreferences: {
       preload: PRELOAD_PATH,
       contextIsolation: true,
       nodeIntegration: false,
     },
+  });
+
+  win.once("ready-to-show", () => {
+    win.show();
   });
 
   if (VITE_DEV_URL) {
