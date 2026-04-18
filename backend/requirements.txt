@@ -5,4 +5,5 @@ websockets
 numpy
 huggingface_hub
 tqdm
+httpx
 pycaw; sys_platform == "win32"

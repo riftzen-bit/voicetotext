@@ -265,13 +265,17 @@ export class PythonBridge {
   }
 
   startModelDownload(model: string) {
+    console.log(`[python-bridge] startModelDownload(${model}) → opening WS ${MODEL_WS_URL}`);
     this.connectModelWs((ws) => {
+      console.log(`[python-bridge] WS open → sending download action`);
       ws.send(JSON.stringify({ action: "download", model }));
     });
   }
 
   loadModel(model: string) {
+    console.log(`[python-bridge] loadModel(${model}) → opening WS ${MODEL_WS_URL}`);
     this.connectModelWs((ws) => {
+      console.log(`[python-bridge] WS open → sending load action`);
       ws.send(JSON.stringify({ action: "load", model }));
     });
   }
@@ -281,6 +285,14 @@ export class PythonBridge {
 
     const ws = new WebSocket(MODEL_WS_URL);
     this.modelWs = ws;
+    const terminalTypes = new Set([
+      "download_complete",
+      "download_error",
+      "load_complete",
+      "load_error",
+      "error",
+    ]);
+    let terminalEventSeen = false;
 
     ws.on("open", () => {
       onOpen(ws);
@@ -289,15 +301,23 @@ export class PythonBridge {
     ws.on("message", (data) => {
       try {
         const msg = JSON.parse(data.toString());
+        if (typeof msg?.type === "string" && terminalTypes.has(msg.type)) {
+          terminalEventSeen = true;
+        }
         this.handleModelWsMessage(msg);
       } catch (err) {
         console.error("[python-bridge] Failed to parse/handle model WS message:", err);
       }
     });
 
-    ws.on("close", () => {
+    ws.on("close", (code, reason) => {
       if (this.modelWs === ws) {
         this.modelWs = null;
+      }
+      if (!terminalEventSeen) {
+        const msg = reason?.toString() || `Backend closed the model connection (code ${code}).`;
+        this.broadcastModelEvent({ type: "load_error", message: msg });
+        this.refreshStatusFromBackend();
       }
     });
 
@@ -306,8 +326,16 @@ export class PythonBridge {
       if (this.modelWs === ws) {
         this.modelWs = null;
       }
+      if (!terminalEventSeen) {
+        this.broadcastModelEvent({
+          type: "load_error",
+          message: `Cannot reach backend model socket: ${err.message}`,
+        });
+        this.refreshStatusFromBackend();
+      }
     });
   }
+
 
   private disconnectModelWs() {
     if (this.modelWs) {

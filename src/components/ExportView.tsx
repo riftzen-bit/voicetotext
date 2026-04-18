@@ -1,4 +1,15 @@
 import { useState } from "react";
+import {
+  FileDown,
+  FileText,
+  FileJson,
+  FileSpreadsheet,
+  FileCode,
+  Copy,
+  Check,
+  Sparkles,
+  Eye,
+} from "lucide-react";
 import type { TranscriptionEntry } from "../hooks/useTranscription";
 
 interface ExportViewProps {
@@ -29,13 +40,14 @@ function filterByDateRange(entries: TranscriptionEntry[], range: string): Transc
   const day = 24 * 60 * 60 * 1000;
 
   switch (range) {
-    case "today":
+    case "today": {
       const todayStart = new Date().setHours(0, 0, 0, 0);
-      return entries.filter(e => e.timestamp >= todayStart);
+      return entries.filter((e) => e.timestamp >= todayStart);
+    }
     case "week":
-      return entries.filter(e => e.timestamp >= now - 7 * day);
+      return entries.filter((e) => e.timestamp >= now - 7 * day);
     case "month":
-      return entries.filter(e => e.timestamp >= now - 30 * day);
+      return entries.filter((e) => e.timestamp >= now - 30 * day);
     default:
       return entries;
   }
@@ -46,27 +58,33 @@ function generateExport(entries: TranscriptionEntry[], config: ExportConfig): st
 
   switch (config.format) {
     case "txt":
-      return filtered.map(e => {
-        const parts: string[] = [];
-        if (config.includeTimestamp) parts.push(`[${formatTimestamp(e.timestamp)}]`);
-        if (config.includeLanguage) parts.push(`(${e.language.toUpperCase()})`);
-        if (config.includeDuration) parts.push(`{${e.duration.toFixed(1)}s}`);
-        if (config.includeRefinedStatus && e.refined) parts.push("[AI Refined]");
-        parts.push(e.text);
-        return parts.join(" ");
-      }).join("\n\n---\n\n");
+      return filtered
+        .map((e) => {
+          const parts: string[] = [];
+          if (config.includeTimestamp) parts.push(`[${formatTimestamp(e.timestamp)}]`);
+          if (config.includeLanguage) parts.push(`(${e.language.toUpperCase()})`);
+          if (config.includeDuration) parts.push(`{${e.duration.toFixed(1)}s}`);
+          if (config.includeRefinedStatus && e.refined) parts.push("[AI Refined]");
+          parts.push(e.text);
+          return parts.join(" ");
+        })
+        .join("\n\n---\n\n");
 
     case "json":
-      return JSON.stringify(filtered.map(e => {
-        const obj: Record<string, unknown> = { text: e.text };
-        if (config.includeTimestamp) obj.timestamp = formatDateISO(e.timestamp);
-        if (config.includeLanguage) obj.language = e.language;
-        if (config.includeDuration) obj.duration = e.duration;
-        if (config.includeRefinedStatus) obj.refined = e.refined;
-        return obj;
-      }), null, 2);
+      return JSON.stringify(
+        filtered.map((e) => {
+          const obj: Record<string, unknown> = { text: e.text };
+          if (config.includeTimestamp) obj.timestamp = formatDateISO(e.timestamp);
+          if (config.includeLanguage) obj.language = e.language;
+          if (config.includeDuration) obj.duration = e.duration;
+          if (config.includeRefinedStatus) obj.refined = e.refined;
+          return obj;
+        }),
+        null,
+        2,
+      );
 
-    case "csv":
+    case "csv": {
       const headers: string[] = [];
       if (config.includeTimestamp) headers.push("Timestamp");
       headers.push("Text");
@@ -74,7 +92,7 @@ function generateExport(entries: TranscriptionEntry[], config: ExportConfig): st
       if (config.includeDuration) headers.push("Duration");
       if (config.includeRefinedStatus) headers.push("Refined");
 
-      const rows = filtered.map(e => {
+      const rows = filtered.map((e) => {
         const cols: string[] = [];
         if (config.includeTimestamp) cols.push(`"${formatTimestamp(e.timestamp)}"`);
         cols.push(`"${e.text.replace(/"/g, '""')}"`);
@@ -85,22 +103,75 @@ function generateExport(entries: TranscriptionEntry[], config: ExportConfig): st
       });
 
       return [headers.join(","), ...rows].join("\n");
+    }
 
     case "md":
-      return filtered.map(e => {
-        const meta: string[] = [];
-        if (config.includeTimestamp) meta.push(`**${formatTimestamp(e.timestamp)}**`);
-        if (config.includeLanguage) meta.push(`*${e.language.toUpperCase()}*`);
-        if (config.includeDuration) meta.push(`${e.duration.toFixed(1)}s`);
-        if (config.includeRefinedStatus && e.refined) meta.push("`AI Refined`");
+      return filtered
+        .map((e) => {
+          const meta: string[] = [];
+          if (config.includeTimestamp) meta.push(`**${formatTimestamp(e.timestamp)}**`);
+          if (config.includeLanguage) meta.push(`*${e.language.toUpperCase()}*`);
+          if (config.includeDuration) meta.push(`${e.duration.toFixed(1)}s`);
+          if (config.includeRefinedStatus && e.refined) meta.push("`AI Refined`");
 
-        return `${meta.length > 0 ? meta.join(" | ") + "\n\n" : ""}> ${e.text}`;
-      }).join("\n\n---\n\n");
+          return `${meta.length > 0 ? meta.join(" | ") + "\n\n" : ""}> ${e.text}`;
+        })
+        .join("\n\n---\n\n");
 
     default:
       return "";
   }
 }
+
+const FORMATS: {
+  value: ExportFormat;
+  label: string;
+  description: string;
+  Icon: typeof FileText;
+}[] = [
+  {
+    value: "txt",
+    label: "Plain Text",
+    description: "Human-readable flat file",
+    Icon: FileText,
+  },
+  {
+    value: "json",
+    label: "JSON",
+    description: "Structured data for tools",
+    Icon: FileJson,
+  },
+  {
+    value: "csv",
+    label: "CSV",
+    description: "Spreadsheets & analysis",
+    Icon: FileSpreadsheet,
+  },
+  {
+    value: "md",
+    label: "Markdown",
+    description: "Docs, notes, GitHub",
+    Icon: FileCode,
+  },
+];
+
+const INCLUDE_OPTIONS: {
+  key: keyof Pick<
+    ExportConfig,
+    "includeTimestamp" | "includeLanguage" | "includeDuration" | "includeRefinedStatus"
+  >;
+  label: string;
+  hint: string;
+}[] = [
+  { key: "includeTimestamp", label: "Timestamp", hint: "When the entry was captured" },
+  { key: "includeLanguage", label: "Language", hint: "Detected input language" },
+  { key: "includeDuration", label: "Duration", hint: "Length of the audio clip" },
+  {
+    key: "includeRefinedStatus",
+    label: "AI refined",
+    hint: "Marks AI-polished entries",
+  },
+];
 
 export default function ExportView({ entries }: ExportViewProps) {
   const [config, setConfig] = useState<ExportConfig>({
@@ -159,123 +230,132 @@ export default function ExportView({ entries }: ExportViewProps) {
   const filteredCount = filterByDateRange(entries, config.dateRange).length;
 
   return (
-    <div className="export-view">
-      <h2 className="section-header">Export</h2>
-      <p className="section-description">
-        Export your transcription history in various formats.
-      </p>
+    <div className="export-view feature-view feature-view--wide">
+      <header className="feature-hero">
+        <span className="feature-medallion tone-teal" aria-hidden>
+          <FileDown />
+        </span>
+        <div className="feature-hero-body">
+          <span className="feature-hero-eyebrow">
+            <Sparkles size={12} strokeWidth={2.5} /> Export
+          </span>
+          <h1 className="feature-hero-title">Export Transcriptions</h1>
+          <p className="feature-hero-description">
+            Turn your transcription history into a downloadable file or copy it
+            straight to the clipboard. Pick a format, choose what to include,
+            and preview before exporting.
+          </p>
+          <div className="feature-hero-meta">
+            <span className="feature-chip accent">
+              {entries.length} {entries.length === 1 ? "entry" : "entries"}
+            </span>
+            <span className="feature-chip">{filteredCount} will export</span>
+          </div>
+        </div>
+      </header>
 
       {entries.length === 0 ? (
-        <div className="export-empty">
-          <p>No transcriptions to export yet.</p>
+        <div className="feature-empty">
+          <div className="feature-empty-icon">
+            <FileDown />
+          </div>
+          <p className="feature-empty-title">Nothing to export yet</p>
+          <p className="feature-empty-description">
+            Transcribe something first — your exports will appear here.
+          </p>
         </div>
       ) : (
         <>
-          {/* Format Selection */}
-          <div className="export-section">
-            <h3 className="subsection-header">Format</h3>
-            <div className="format-options">
-              {([
-                { value: "txt", label: "Plain Text", icon: "T" },
-                { value: "json", label: "JSON", icon: "{}" },
-                { value: "csv", label: "CSV", icon: "," },
-                { value: "md", label: "Markdown", icon: "#" },
-              ] as const).map((fmt) => (
-                <button
-                  key={fmt.value}
-                  className={`format-btn ${config.format === fmt.value ? "active" : ""}`}
-                  onClick={() => updateConfig("format", fmt.value)}
-                >
-                  <span className="format-icon">{fmt.icon}</span>
-                  <span className="format-label">{fmt.label}</span>
-                </button>
-              ))}
+          <section className="feature-card feature-card--flat">
+            <h3 className="feature-section-title">Format</h3>
+            <div className="export-format-grid">
+              {FORMATS.map(({ value, label, description, Icon }) => {
+                const active = config.format === value;
+                return (
+                  <button
+                    key={value}
+                    className={`export-format-btn ${active ? "active" : ""}`}
+                    onClick={() => updateConfig("format", value)}
+                  >
+                    <span className="export-format-icon" aria-hidden>
+                      <Icon />
+                    </span>
+                    <span className="export-format-label">{label}</span>
+                    <span className="export-format-hint">{description}</span>
+                  </button>
+                );
+              })}
             </div>
-          </div>
+          </section>
 
-          {/* Date Range */}
-          <div className="export-section">
-            <h3 className="subsection-header">Date Range</h3>
-            <div className="field-row">
+          <section className="feature-card feature-card--flat">
+            <h3 className="feature-section-title">Date range</h3>
+            <div className="export-range-row">
               <select
-                className="form-select"
+                className="feature-select"
                 value={config.dateRange}
-                onChange={(e) => updateConfig("dateRange", e.target.value as ExportConfig["dateRange"])}
-                style={{ width: "200px" }}
+                onChange={(e) =>
+                  updateConfig("dateRange", e.target.value as ExportConfig["dateRange"])
+                }
               >
-                <option value="all">All Time ({entries.length})</option>
+                <option value="all">All time ({entries.length})</option>
                 <option value="today">Today</option>
-                <option value="week">Last 7 Days</option>
-                <option value="month">Last 30 Days</option>
+                <option value="week">Last 7 days</option>
+                <option value="month">Last 30 days</option>
               </select>
-              <span className="entry-count">{filteredCount} entries selected</span>
+              <span className="feature-chip">{filteredCount} entries selected</span>
             </div>
-          </div>
+          </section>
 
-          {/* Include Options */}
-          <div className="export-section">
-            <h3 className="subsection-header">Include</h3>
-            <div className="checkbox-group">
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={config.includeTimestamp}
-                  onChange={(e) => updateConfig("includeTimestamp", e.target.checked)}
-                />
-                <span className="checkbox-text">Timestamp</span>
-              </label>
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={config.includeLanguage}
-                  onChange={(e) => updateConfig("includeLanguage", e.target.checked)}
-                />
-                <span className="checkbox-text">Language</span>
-              </label>
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={config.includeDuration}
-                  onChange={(e) => updateConfig("includeDuration", e.target.checked)}
-                />
-                <span className="checkbox-text">Duration</span>
-              </label>
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={config.includeRefinedStatus}
-                  onChange={(e) => updateConfig("includeRefinedStatus", e.target.checked)}
-                />
-                <span className="checkbox-text">AI Refined Status</span>
-              </label>
+          <section className="feature-card feature-card--flat">
+            <h3 className="feature-section-title">Include fields</h3>
+            <div className="export-include-grid">
+              {INCLUDE_OPTIONS.map(({ key, label, hint }) => {
+                const checked = config[key];
+                return (
+                  <label
+                    key={key}
+                    className={`export-include-option ${checked ? "checked" : ""}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(e) => updateConfig(key, e.target.checked)}
+                    />
+                    <span className="export-include-label">{label}</span>
+                    <span className="export-include-hint">{hint}</span>
+                  </label>
+                );
+              })}
             </div>
-          </div>
+          </section>
 
-          {/* Preview */}
           {preview && (
-            <div className="export-section">
-              <h3 className="subsection-header">Preview</h3>
+            <section className="feature-card feature-card--flat">
+              <h3 className="feature-section-title">
+                <Eye size={18} strokeWidth={2} /> Preview
+              </h3>
               <div className="export-preview">
-                <pre>{preview.slice(0, 1000)}{preview.length > 1000 ? "\n\n... (truncated)" : ""}</pre>
+                <pre>
+                  {preview.slice(0, 1000)}
+                  {preview.length > 1000 ? "\n\n… (truncated)" : ""}
+                </pre>
               </div>
-            </div>
+            </section>
           )}
 
-          {/* Actions */}
-          <div className="export-actions">
-            <button className="btn" onClick={handlePreview}>
+          <div className="feature-form-actions export-actions">
+            <button className="feature-btn" onClick={handlePreview}>
+              <Eye />
               Preview
             </button>
-            <button className="btn" onClick={handleCopyToClipboard}>
-              {copied ? "Copied!" : "Copy to Clipboard"}
+            <button className="feature-btn" onClick={handleCopyToClipboard}>
+              {copied ? <Check /> : <Copy />}
+              {copied ? "Copied" : "Copy to clipboard"}
             </button>
-            <button className="btn btn-primary" onClick={handleDownload}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
-              Download
+            <button className="feature-btn primary" onClick={handleDownload}>
+              <FileDown />
+              Download file
             </button>
           </div>
         </>

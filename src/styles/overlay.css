@@ -1,27 +1,29 @@
 /*
- * VoiceToText Overlay — Liquid Glass pill
+ * VoiceToText Overlay — Top-bar rounded-rect capsule.
  *
- * Collapsed: 56 px circle showing a state-tinted orb.
- * Expanded: 280 px pill with live waveform + phase label.
+ * Three states, three distinct visuals:
+ *   idle       : single static accent dot (no animation)
+ *   recording  : 8 bars, triangle wave, adjacent bars inverted (up/down zigzag)
+ *   processing : blue-yellow conic-gradient ring spinning around a glossy core
  *
- * Expands on hover (idle) or automatically while recording / processing /
- * refining. Animation uses Apple spring bezier. Backdrop filter = blur 40 +
- * saturate 180, tinted by --glass-tint. A pseudo-element paints the specular
- * inner highlight that gives glass its hardware-like edge.
+ * Window frame is 180 x 40, pinned top-center of the primary display. Because
+ * the native window is transparent + frameless, any CSS box-shadow that extends
+ * beyond the frame is clipped and reads as an ugly seam — so we keep shadows
+ * tight (≤ 6 px blur) and inside a single snug border.
  */
 
 .overlay-root {
   position: fixed;
   inset: 0;
   display: flex;
-  align-items: flex-start;
-  justify-content: flex-end;
-  padding: 16px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
   pointer-events: none;
 }
 
 /* =======================================================================
- * PILL
+ * PILL — rounded rectangle with small corners
  * ===================================================================== */
 .overlay-pill {
   pointer-events: auto;
@@ -30,258 +32,313 @@
 
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px;
-  padding-right: 14px;
+  justify-content: center;
+  gap: 0;
+  padding: 0 10px;
 
-  height: 56px;
-  width: 56px;
-  border-radius: var(--radius-pill);
+  height: 28px;
+  min-width: 64px;
+  max-width: 160px;
+  border-radius: 14px;
   overflow: hidden;
   cursor: pointer;
+  isolation: isolate;
 
-  background: var(--glass-tint);
-  backdrop-filter: blur(40px) saturate(180%);
-  -webkit-backdrop-filter: blur(40px) saturate(180%);
-  border: 1px solid var(--border-glass);
-
-  box-shadow:
-    0 8px 28px rgba(0, 0, 0, 0.35),
-    0 1px 0 rgba(255, 255, 255, 0.06) inset,
-    0 -1px 0 rgba(0, 0, 0, 0.25) inset;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.88));
+  opacity: var(--overlay-opacity, 1);
 
   transition:
-    width var(--duration-normal) var(--spring-out),
-    background var(--duration-normal) var(--ease-out),
-    box-shadow var(--duration-normal) var(--ease-out),
-    transform var(--duration-fast) var(--ease-out);
+    min-width 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 140ms ease-out;
 }
 
 .overlay-pill.expanded {
-  width: 260px;
+  min-width: 140px;
 }
 
-.overlay-pill:hover {
-  transform: scale(1.02);
-  box-shadow:
-    0 12px 36px rgba(0, 0, 0, 0.45),
-    0 1px 0 rgba(255, 255, 255, 0.08) inset,
-    0 -1px 0 rgba(0, 0, 0, 0.25) inset;
-}
+.overlay-pill:hover  { transform: translateY(0) scale(1.01); }
+.overlay-pill:active { transform: translateY(0) scale(0.985); }
 
-.overlay-pill:active {
-  transform: scale(0.985);
-}
-
-/* Specular highlight — the thin bright arc across the top of real glass */
-.overlay-specular {
+/* Glass substrate — single tight shadow, no diffuse spill */
+.pill-glass {
   position: absolute;
   inset: 0;
   border-radius: inherit;
+  background: rgba(20, 20, 24, 0.82);
+  backdrop-filter: blur(22px) saturate(170%);
+  -webkit-backdrop-filter: blur(22px) saturate(170%);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.35),
+    0 4px 10px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
   pointer-events: none;
-  background: var(--glass-specular);
-  mix-blend-mode: overlay;
-  opacity: 0.65;
+  z-index: 0;
 }
 
-/* =======================================================================
- * STATE ORB (always visible — leading element of the pill)
- * ===================================================================== */
-.overlay-orb {
+/* Stage is where the three state visuals live */
+.pill-stage {
   position: relative;
+  z-index: 1;
   flex: 0 0 auto;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-
+  width: 30px;
+  height: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
-
-  background:
-    radial-gradient(
-      circle at 35% 30%,
-      rgba(255, 255, 255, 0.12) 0%,
-      rgba(0, 0, 0, 0.00) 60%
-    ),
-    rgba(0, 0, 0, 0.28);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.10),
-    inset 0 -1px 2px rgba(0, 0, 0, 0.40);
-  transition:
-    background var(--duration-normal) var(--ease-out),
-    box-shadow var(--duration-normal) var(--ease-out);
 }
 
-.overlay-orb-core {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--text-muted);
-  transition:
-    background var(--duration-fast) var(--ease-out),
-    box-shadow var(--duration-normal) var(--ease-out),
-    transform var(--duration-normal) var(--ease-out);
-}
-
-/* =======================================================================
- * BODY (waveform + label) — only visible when expanded
- * ===================================================================== */
-.overlay-body {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-
-  opacity: 0;
-  transform: translateX(-4px);
-  transition:
-    opacity var(--duration-fast) var(--ease-out),
-    transform var(--duration-normal) var(--spring-out);
-}
-
-.overlay-pill.expanded .overlay-body {
-  opacity: 1;
-  transform: translateX(0);
-  transition-delay: 80ms; /* wait until pill has grown past orb width */
-}
-
-.overlay-wave {
-  width: 100%;
-  height: 22px;
+.stage-idle,
+.stage-wave,
+.stage-spin {
+  position: absolute;
+  inset: 0;
   display: flex;
   align-items: center;
-  opacity: 0.92;
+  justify-content: center;
+  opacity: 0;
+  transform: scale(0.94);
+  transition:
+    opacity 240ms ease,
+    transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
 }
 
-.overlay-label {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  white-space: nowrap;
-  font-feature-settings: "tnum";
+.overlay-pill.idle .stage-idle,
+.overlay-pill.done .stage-idle,
+.overlay-pill.error .stage-idle,
+.overlay-pill.not-ready .stage-idle {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.overlay-pill.recording .stage-wave {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.overlay-pill.processing .stage-spin,
+.overlay-pill.refining .stage-spin {
+  opacity: 1;
+  transform: scale(1);
 }
 
 /* =======================================================================
- * STATE STYLES — orb tint + tooltip behaviour
- * Legacy class names (.idle, .recording, .processing, .refining, .done,
- * .error, .not-ready) are preserved so existing transcript-state flow works.
+ * IDLE — single static dot (no animation per user request)
  * ===================================================================== */
+.stage-idle { gap: 0; }
 
-/* IDLE — Apple blue, slow breathe */
-.overlay-pill.idle .overlay-orb-core {
-  background: var(--accent);
-  box-shadow: var(--glow-idle);
-  animation: orb-breathe 4s var(--ease-in-out) infinite;
-}
-
-@keyframes orb-breathe {
-  0%, 100% { opacity: 0.75; transform: scale(0.95); }
-  50%      { opacity: 1;    transform: scale(1.05); }
-}
-
-/* RECORDING — system red, glow ring, pulse */
-.overlay-pill.recording .overlay-orb-core {
-  background: var(--status-recording);
-  box-shadow:
-    0 0 10px var(--status-recording-glow),
-    0 0 20px var(--status-recording-subtle);
-  animation: orb-pulse 1.4s var(--ease-in-out) infinite;
-}
-.overlay-pill.recording .overlay-orb {
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.10),
-    inset 0 -1px 2px rgba(0, 0, 0, 0.40),
-    0 0 0 1px rgba(255, 69, 58, 0.30);
-}
-.overlay-pill.recording .overlay-label { color: var(--status-recording); }
-
-@keyframes orb-pulse {
-  0%, 100% { transform: scale(1);    box-shadow: 0 0 10px var(--status-recording-glow); }
-  50%      { transform: scale(1.15); box-shadow: 0 0 18px var(--status-recording-glow); }
-}
-
-/* PROCESSING — amber, spinning halo */
-.overlay-pill.processing .overlay-orb-core {
-  background: var(--status-processing);
-  box-shadow: 0 0 10px var(--status-processing-subtle);
-}
-.overlay-pill.processing .overlay-orb::after {
-  content: "";
-  position: absolute;
-  inset: -3px;
+.idle-dot {
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
-  border: 1.5px solid transparent;
-  border-top-color: var(--status-processing);
-  border-right-color: var(--status-processing);
-  animation: orb-spin 1.6s linear infinite;
+  background: var(--accent, #c4a052);
 }
-.overlay-pill.processing .overlay-label { color: var(--status-processing); }
 
-@keyframes orb-spin {
-  from { transform: rotate(0deg); }
+.overlay-pill.not-ready .idle-dot {
+  background: var(--text-tertiary, #808088);
+}
+
+.overlay-pill.done .idle-dot {
+  background: var(--status-success, #34c759);
+}
+
+.overlay-pill.error .idle-dot {
+  background: var(--status-error, #ff453a);
+}
+
+/* =======================================================================
+ * RECORDING — triangle wave (linear up/down, alternating bars inverted)
+ * ===================================================================== */
+.stage-wave {
+  gap: 1.5px;
+}
+
+.wave-bar {
+  display: block;
+  width: 2px;
+  height: 3px;
+  border-radius: 1px;
+  background: linear-gradient(180deg, #ff7a70 0%, #ff3b30 100%);
+  will-change: height;
+  animation: wave-triangle 520ms linear infinite;
+}
+
+.wave-bar:nth-child(even) { animation-delay: -260ms; }
+
+/*
+ * Both endpoints are tied to --audio-level so the oscillation amplitude
+ * equals the input level. At silence (level=0) the min and max keyframes
+ * collapse to the same 3 px height and the bars appear flat even though
+ * the CSS animation is still running.
+ */
+@keyframes wave-triangle {
+  0%, 100% { height: calc(3px + var(--audio-level, 0) * 1px);  }
+  50%      { height: calc(3px + var(--audio-level, 0) * 12px); }
+}
+
+/* =======================================================================
+ * PROCESSING / REFINING — blue-yellow conic ring + glossy core
+ * ===================================================================== */
+.stage-spin { width: 100%; height: 100%; }
+
+/*
+ * Ring diameter must stay well below the pill height so the pill's
+ * `overflow: hidden` + border-radius corners don't clip the top/bottom
+ * pixel row via antialiasing (the "missing 1 frame above and below" bug).
+ * Pill is 28 px tall → ring 20 px leaves 4 px breathing room each side.
+ */
+.spin-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 20px;
+  height: 20px;
+  margin-top: -10px;
+  margin-left: -10px;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    #0a84ff 0deg,
+    #5ac8fa 90deg,
+    #ffd60a 180deg,
+    #ff9f0a 260deg,
+    #0a84ff 360deg
+  );
+  mask: radial-gradient(circle, transparent 58%, #000 60%);
+  -webkit-mask: radial-gradient(circle, transparent 58%, #000 60%);
+  filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.35));
+  animation: spin-ring 1.2s linear infinite;
+}
+
+.spin-core {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 7px;
+  height: 7px;
+  margin-top: -3.5px;
+  margin-left: -3.5px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 35% 30%,
+    #ffffff 0%,
+    #5ac8fa 55%,
+    #0a84ff 100%
+  );
+  box-shadow:
+    0 0 3px rgba(90, 200, 250, 0.55),
+    0 1px 1.5px rgba(0, 0, 0, 0.3);
+  animation: spin-core 2.4s ease-in-out infinite;
+}
+
+.overlay-pill.refining .spin-ring {
+  animation-duration: 0.9s;
+}
+
+@keyframes spin-ring {
+  from { transform: rotate(0deg);   }
   to   { transform: rotate(360deg); }
 }
 
-/* REFINING — purple (AI), faster halo */
-.overlay-pill.refining .overlay-orb-core {
-  background: var(--status-refining);
-  box-shadow: 0 0 10px var(--glow-refining);
-}
-.overlay-pill.refining .overlay-orb::after {
-  content: "";
-  position: absolute;
-  inset: -3px;
-  border-radius: 50%;
-  border: 1.5px solid transparent;
-  border-top-color: var(--status-refining);
-  border-right-color: var(--status-refining);
-  animation: orb-spin 1.1s linear infinite;
-}
-.overlay-pill.refining .overlay-label { color: var(--status-refining); }
-
-/* DONE — green flash */
-.overlay-pill.done .overlay-orb-core {
-  background: var(--status-success);
-  box-shadow: 0 0 12px var(--glow-success);
-  animation: orb-flash 420ms var(--spring-out);
-}
-.overlay-pill.done .overlay-label { color: var(--status-success); }
-
-@keyframes orb-flash {
-  0%   { transform: scale(1.4); box-shadow: 0 0 20px var(--glow-success); }
-  100% { transform: scale(1); }
+@keyframes spin-core {
+  0%, 100% { transform: scale(1);    }
+  50%      { transform: scale(1.15); }
 }
 
-/* ERROR — red blink twice */
-.overlay-pill.error .overlay-orb-core {
-  background: var(--status-error);
-  box-shadow: 0 0 10px var(--status-recording-glow);
-  animation: orb-blink 320ms var(--ease-in-out) 2;
+/* =======================================================================
+ * LABEL
+ * ===================================================================== */
+.pill-label {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 auto;
+  min-width: 0;
+  max-width: 0;
+  margin-left: 0;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.88));
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  transform: translateX(-4px);
+  transition:
+    opacity 200ms ease,
+    max-width 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    margin-left 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    color 240ms ease;
 }
-.overlay-pill.error .overlay-label { color: var(--status-error); }
 
-@keyframes orb-blink {
-  0%, 100% { opacity: 1; }
-  50%      { opacity: 0.35; }
+.overlay-pill.expanded .pill-label {
+  max-width: 110px;
+  margin-left: 8px;
+  opacity: 1;
+  transform: translateX(0);
+  transition-delay: 60ms;
 }
 
-/* NOT-READY — dim breathing dot (model not loaded yet) */
-.overlay-pill.not-ready .overlay-orb-core {
-  background: var(--text-muted);
-  box-shadow: none;
-  animation: orb-dim 2s var(--ease-in-out) infinite;
-}
-.overlay-pill.not-ready .overlay-label {
-  color: var(--text-tertiary);
+.overlay-pill.recording  .pill-label { color: #ff6961; }
+.overlay-pill.processing .pill-label { color: #5ac8fa; }
+.overlay-pill.refining   .pill-label { color: #ffd60a; }
+.overlay-pill.done       .pill-label { color: var(--status-success, #34c759); }
+.overlay-pill.error      .pill-label { color: var(--status-error, #ff453a); }
+.overlay-pill.not-ready  .pill-label {
+  color: var(--text-tertiary, #808088);
   font-weight: 500;
 }
 
-@keyframes orb-dim {
-  0%, 100% { opacity: 0.35; }
-  50%      { opacity: 0.65; }
+/* =======================================================================
+ * PHASE BORDER TINT — only the 1 px border changes hue per state.
+ * No outer glow, no bleed beyond the pill edge.
+ * ===================================================================== */
+.overlay-pill.recording .pill-glass {
+  border-color: rgba(255, 69, 58, 0.55);
+  box-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.35),
+    0 4px 10px rgba(0, 0, 0, 0.28),
+    inset 0 0 0 1px rgba(255, 69, 58, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.overlay-pill.processing .pill-glass,
+.overlay-pill.refining   .pill-glass {
+  border-color: rgba(10, 132, 255, 0.45);
+  box-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.35),
+    0 4px 10px rgba(0, 0, 0, 0.28),
+    inset 0 0 0 1px rgba(10, 132, 255, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+/* =======================================================================
+ * OVERLAY SIZE VARIANTS (from appearance settings)
+ * ===================================================================== */
+:root[data-overlay-size="compact"] .overlay-pill { height: 24px; border-radius: 12px; }
+:root[data-overlay-size="compact"] .pill-stage   { width: 26px; height: 14px; }
+:root[data-overlay-size="compact"] .spin-ring    {
+  width: 16px; height: 16px; margin-top: -8px; margin-left: -8px;
+}
+:root[data-overlay-size="compact"] .spin-core    {
+  width: 6px; height: 6px; margin-top: -3px; margin-left: -3px;
+}
+:root[data-overlay-size="large"]   .overlay-pill { height: 34px; border-radius: 17px; }
+:root[data-overlay-size="large"]   .pill-stage   { width: 38px; height: 20px; }
+:root[data-overlay-size="large"]   .spin-ring    {
+  width: 24px; height: 24px; margin-top: -12px; margin-left: -12px;
+}
+:root[data-overlay-size="large"]   .spin-core    {
+  width: 9px; height: 9px; margin-top: -4.5px; margin-left: -4.5px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wave-bar,
+  .spin-ring,
+  .spin-core {
+    animation: none !important;
+  }
 }

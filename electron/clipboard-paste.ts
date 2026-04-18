@@ -3,20 +3,56 @@ import { exec, execFile } from "node:child_process";
 import { store } from "./store";
 import { WindowTracker } from "./window-tracker";
 import { startClipboardMonitoring } from "./clipboard-monitor";
+import { planDelivery } from "../src/lib/clipboard-plan";
+
+export { planDelivery };
+export type { DeliveryPlan } from "../src/lib/clipboard-plan";
+
+// How long to wait after issuing the synthetic Ctrl+V before we put the
+// user's clipboard back. SendKeys is async and the target app needs to read
+// the clipboard during its paste handler. 350 ms covers slow apps (Word,
+// Slack) without being visibly sluggish.
+const RESTORE_CLIPBOARD_DELAY_MS = 350;
 
 export function registerClipboardHandlers(windowTracker: WindowTracker) {
   ipcMain.on("paste-text", async (_e, text: string) => {
     if (!text) return;
-    if (!store.get("autoPaste")) {
+
+    const plan = planDelivery({
+      autoPaste: !!store.get("autoPaste"),
+      copyToClipboard: !!store.get("copyToClipboard"),
+    });
+
+    if (plan.noop) {
       broadcastPasteStatus({
         type: "paste_status",
         status: "skipped",
-        message: "Auto-paste is disabled.",
+        message: "Auto-paste and clipboard copy are both disabled.",
       });
       return;
     }
 
-    clipboard.writeText(text);
+    let savedClipboard = "";
+    if (plan.saveClipboard) {
+      try {
+        savedClipboard = clipboard.readText();
+      } catch {
+        savedClipboard = "";
+      }
+    }
+
+    if (plan.writeTranscript) {
+      clipboard.writeText(text);
+    }
+
+    if (!plan.simulatePaste) {
+      broadcastPasteStatus({
+        type: "paste_status",
+        status: "copied",
+        message: "Transcript copied to clipboard.",
+      });
+      return;
+    }
 
     const restored = await windowTracker.restoreFocus();
     await new Promise((r) => setTimeout(r, 80));
@@ -31,9 +67,29 @@ export function registerClipboardHandlers(windowTracker: WindowTracker) {
           : "Text pasted using the current foreground app.",
       });
 
-      // Start clipboard monitoring for keyword learning
-      startClipboardMonitoring(text, BrowserWindow.getAllWindows());
+      if (plan.startMonitoring) {
+        startClipboardMonitoring(text, BrowserWindow.getAllWindows());
+      }
+
+      if (plan.restoreClipboard) {
+        setTimeout(() => {
+          try {
+            clipboard.writeText(savedClipboard);
+          } catch {
+            /* clipboard may be locked by another app; user can copy again */
+          }
+        }, RESTORE_CLIPBOARD_DELAY_MS);
+      }
     } catch (err) {
+      // Paste failed — still try to restore the user's clipboard if we
+      // overwrote it, otherwise they'd silently lose what they had.
+      if (plan.restoreClipboard) {
+        try {
+          clipboard.writeText(savedClipboard);
+        } catch {
+          /* ignore */
+        }
+      }
       const message = err instanceof Error ? err.message : String(err);
       broadcastPasteStatus({
         type: "paste_status",

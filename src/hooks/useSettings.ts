@@ -37,6 +37,10 @@ export interface AppSettings {
   hotkey: string;
   cancelHotkey: string;
   autoPaste: boolean;
+  // When false, the user's clipboard is preserved across a paste: we stash the
+  // previous clipboard, write the transcript, fire Ctrl+V, then restore the
+  // original. When true, the transcript stays on the clipboard after paste.
+  copyToClipboard: boolean;
   audioDevice: string;
   modelSize: string;
   transcriptionProfile: "fast" | "balanced" | "accurate";
@@ -45,18 +49,30 @@ export interface AppSettings {
   useGemini: boolean;
   geminiApiKey: string;
   geminiModel: string;
+  // Two-step pipeline mode. "off" disables the backend pipeline entirely
+  // (falling back to the legacy single-shot `useGemini` polish). The other
+  // three values drive ai_pipeline.refine_stream on the backend.
+  aiMode: "off" | "refine" | "translate" | "summarize-translate";
+  // BCP-47 code of the language the final text should appear in. The source
+  // language is taken from Whisper's detection at transcription time.
+  uiLanguage: string;
   appearance?: Record<string, unknown>;
   // Audio enhancement settings
   noiseGateEnabled: boolean;
   noiseGateThresholdDb: number;
   audioNormalizeEnabled: boolean;
   audioNormalizeTargetDb: number;
-  // Context templates for AI refinement
+  // Context templates for AI refinement.
+  // `mode` distinguishes polish (voice cleanup + style hint) from agent
+  // (persona replaces system prompt). Older saved settings without `mode`
+  // fall back to "polish" at read time.
   contextTemplates?: Array<{
     id: string;
     name: string;
     prompt: string;
     order: number;
+    mode?: "polish" | "agent";
+    description?: string;
   }>;
   activeTemplateId?: string | null;
   // Code mode - skip AI refinement
@@ -81,6 +97,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   hotkey: "CommandOrControl+Shift+R",
   cancelHotkey: "Escape",
   autoPaste: true,
+  copyToClipboard: true,
   audioDevice: "default",
   modelSize: "large-v3",
   transcriptionProfile: "balanced",
@@ -89,6 +106,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   useGemini: false,
   geminiApiKey: "",
   geminiModel: "gemini-2.5-flash",
+  aiMode: "off",
+  uiLanguage: "en",
   noiseGateEnabled: true,
   noiseGateThresholdDb: -40,
   audioNormalizeEnabled: true,

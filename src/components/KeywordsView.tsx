@@ -1,12 +1,18 @@
 import { useState, useMemo } from "react";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Search,
+  Upload,
+  Download,
+  Tags,
+  ArrowRight,
+  Sparkles,
+} from "lucide-react";
 import { useKeywords } from "../hooks/useKeywords";
 import type { Keyword } from "../lib/ipc";
 
-/**
- * KeywordsView - Vocabulary correction management tab.
- * Allows users to add, edit, and delete keyword replacements.
- * These are automatically applied after transcription.
- */
 export default function KeywordsView() {
   const {
     keywords,
@@ -29,7 +35,6 @@ export default function KeywordsView() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  // Filter and sort keywords
   const filteredKeywords = useMemo(() => {
     let result = [...keywords];
 
@@ -42,7 +47,6 @@ export default function KeywordsView() {
       );
     }
 
-    // Sort by usage count (most used first), then by creation date
     result.sort((a, b) => {
       if (b.usageCount !== a.usageCount) {
         return b.usageCount - a.usageCount;
@@ -52,6 +56,11 @@ export default function KeywordsView() {
 
     return result;
   }, [keywords, searchQuery]);
+
+  const totalUsage = useMemo(
+    () => keywords.reduce((sum, k) => sum + k.usageCount, 0),
+    [keywords]
+  );
 
   const resetForm = () => {
     setFormTrigger("");
@@ -136,7 +145,7 @@ export default function KeywordsView() {
           const count = await importKeywords(data);
           alert(`Imported ${count} keywords.`);
         }
-      } catch (err) {
+      } catch {
         alert("Failed to import keywords. Invalid JSON format.");
       }
     };
@@ -145,259 +154,245 @@ export default function KeywordsView() {
 
   if (!loaded) {
     return (
-      <div className="keywords-view">
-        <div className="keywords-loading">Loading...</div>
+      <div className="feature-view">
+        <div className="feature-empty">
+          <div className="feature-empty-icon"><Tags /></div>
+          <p className="feature-empty-title">Loading keywords…</p>
+        </div>
       </div>
     );
   }
 
+  const isEditing = Boolean(editingId || isAdding);
+
   return (
-    <div className="keywords-view">
-      <div className="keywords-header">
-        <div className="header-left">
-          <h2 className="section-header">Keywords</h2>
-          <span className="keywords-count">{keywords.length} entries</span>
+    <div className="feature-view feature-view--wide">
+      <header className="feature-hero">
+        <span className="feature-medallion tone-orange" aria-hidden>
+          <Tags />
+        </span>
+        <div className="feature-hero-body">
+          <span className="feature-hero-eyebrow">
+            <Sparkles size={12} strokeWidth={2.5} /> Vocabulary
+          </span>
+          <h1 className="feature-hero-title">Keyword Corrections</h1>
+          <p className="feature-hero-description">
+            Replace words or phrases automatically after every transcription. Useful for
+            fixing misheard names, technical jargon, and acronyms the speech model keeps
+            getting wrong.
+          </p>
+          <div className="feature-hero-meta">
+            <span className="feature-chip accent">
+              {keywords.length} {keywords.length === 1 ? "entry" : "entries"}
+            </span>
+            <span className="feature-chip">
+              {totalUsage} {totalUsage === 1 ? "correction" : "corrections"} applied
+            </span>
+          </div>
         </div>
-        <div className="header-actions">
+        <div className="feature-hero-actions">
           <button
-            className="btn btn-sm"
+            className="feature-btn"
             onClick={handleImport}
             disabled={loading}
             title="Import keywords from JSON"
           >
+            <Upload />
             Import
           </button>
           <button
-            className="btn btn-sm"
+            className="feature-btn"
             onClick={handleExport}
             disabled={loading || keywords.length === 0}
             title="Export keywords to JSON"
           >
+            <Download />
             Export
           </button>
           <button
-            className="btn btn-primary"
+            className="feature-btn primary"
             onClick={handleAdd}
             disabled={isAdding || loading}
           >
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 12 12"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <line x1="6" y1="1" x2="6" y2="11" />
-              <line x1="1" y1="6" x2="11" y2="6" />
-            </svg>
-            Add Keyword
+            <Plus />
+            Add keyword
           </button>
+        </div>
+      </header>
+
+      <div className="feature-toolbar">
+        <div className="feature-search">
+          <Search size={18} strokeWidth={2} className="feature-search-icon" />
+          <input
+            type="text"
+            placeholder="Search triggers or corrections…"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
         </div>
       </div>
 
-      <p className="section-description">
-        Define words or phrases that should be automatically replaced after
-        transcription. Useful for correcting frequently misheard words, names,
-        or technical terms.
-      </p>
-
-      {/* Search */}
-      <div className="keywords-search">
-        <input
-          type="text"
-          className="form-input"
-          placeholder="Search keywords..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
-      </div>
-
-      {/* Add/Edit Form */}
-      {(isAdding || editingId) && (
-        <div className="keyword-form">
-          <div className="form-row">
-            <div className="form-group">
-              <label className="form-label">Trigger (heard)</label>
-              <input
-                type="text"
-                className="form-input"
-                value={formTrigger}
-                onChange={(e) => setFormTrigger(e.target.value)}
-                placeholder="Word or phrase to replace"
-                autoFocus
-              />
+      {isEditing && (
+        <div className="feature-card feature-card--flat">
+          <h3 className="feature-section-title">
+            {editingId ? "Edit keyword" : "New keyword"}
+          </h3>
+          <div className="feature-form">
+            <div className="feature-form-grid">
+              <div className="feature-form-field">
+                <label>Trigger (what the model heard)</label>
+                <input
+                  type="text"
+                  className="feature-input"
+                  value={formTrigger}
+                  onChange={(e) => setFormTrigger(e.target.value)}
+                  placeholder="e.g. get hub"
+                  autoFocus
+                />
+              </div>
+              <div className="feature-form-field">
+                <label>Correction (what you meant)</label>
+                <input
+                  type="text"
+                  className="feature-input"
+                  value={formCorrection}
+                  onChange={(e) => setFormCorrection(e.target.value)}
+                  placeholder="e.g. GitHub"
+                />
+              </div>
             </div>
-            <div className="form-group">
-              <label className="form-label">Correction (display)</label>
-              <input
-                type="text"
-                className="form-input"
-                value={formCorrection}
-                onChange={(e) => setFormCorrection(e.target.value)}
-                placeholder="Replacement text"
-              />
+
+            <div className="feature-form-options">
+              <label className="feature-checkbox">
+                <input
+                  type="checkbox"
+                  checked={formWholeWord}
+                  onChange={(e) => setFormWholeWord(e.target.checked)}
+                />
+                <span>Whole word only</span>
+              </label>
+              <label className="feature-checkbox">
+                <input
+                  type="checkbox"
+                  checked={formCaseSensitive}
+                  onChange={(e) => setFormCaseSensitive(e.target.checked)}
+                />
+                <span>Case sensitive</span>
+              </label>
             </div>
-          </div>
 
-          <div className="form-options">
-            <label className="checkbox-label">
-              <input
-                type="checkbox"
-                checked={formWholeWord}
-                onChange={(e) => setFormWholeWord(e.target.checked)}
-              />
-              <span>Whole word only</span>
-            </label>
-            <label className="checkbox-label">
-              <input
-                type="checkbox"
-                checked={formCaseSensitive}
-                onChange={(e) => setFormCaseSensitive(e.target.checked)}
-              />
-              <span>Case sensitive</span>
-            </label>
-          </div>
-
-          <div className="form-actions">
-            <button className="btn" onClick={resetForm} disabled={loading}>
-              Cancel
-            </button>
-            <button
-              className="btn btn-primary"
-              onClick={handleSave}
-              disabled={
-                loading || !formTrigger.trim() || !formCorrection.trim()
-              }
-            >
-              {editingId ? "Save Changes" : "Add Keyword"}
-            </button>
+            <div className="feature-form-actions">
+              <button className="feature-btn ghost" onClick={resetForm} disabled={loading}>
+                Cancel
+              </button>
+              <button
+                className="feature-btn primary"
+                onClick={handleSave}
+                disabled={
+                  loading || !formTrigger.trim() || !formCorrection.trim()
+                }
+              >
+                {editingId ? "Save changes" : "Add keyword"}
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Keywords List */}
-      <div className="keywords-list">
-        {filteredKeywords.length === 0 ? (
-          <div className="keywords-empty">
+      {filteredKeywords.length === 0 ? (
+        <div className="feature-empty">
+          <div className="feature-empty-icon"><Tags /></div>
+          <p className="feature-empty-title">
+            {searchQuery ? "No matches" : "No keywords yet"}
+          </p>
+          <p className="feature-empty-description">
             {searchQuery
-              ? "No keywords match your search."
-              : "No keywords yet. Add your first keyword to get started!"}
-          </div>
-        ) : (
-          <table className="keywords-table">
-            <thead>
-              <tr>
-                <th>Trigger</th>
-                <th>Correction</th>
-                <th>Options</th>
-                <th>Used</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredKeywords.map((kw) => (
-                <tr
-                  key={kw.id}
-                  className={editingId === kw.id ? "editing" : ""}
-                >
-                  <td className="cell-trigger">
-                    <span className="keyword-text">{kw.trigger}</span>
-                    {kw.source === "learned" && (
-                      <span className="badge-learned" title="Learned from your corrections">
-                        auto
-                      </span>
-                    )}
-                  </td>
-                  <td className="cell-correction">
-                    <span className="keyword-text">{kw.correction}</span>
-                  </td>
-                  <td className="cell-options">
-                    {kw.wholeWord && (
-                      <span className="option-badge" title="Whole word only">
-                        WW
-                      </span>
-                    )}
-                    {kw.caseSensitive && (
-                      <span className="option-badge" title="Case sensitive">
-                        CS
-                      </span>
-                    )}
-                  </td>
-                  <td className="cell-usage">{kw.usageCount}x</td>
-                  <td className="cell-actions">
-                    <button
-                      className="icon-btn"
-                      onClick={() => handleEdit(kw)}
-                      title="Edit"
-                      disabled={loading}
-                    >
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                      </svg>
-                    </button>
-                    <button
-                      className="icon-btn danger"
-                      onClick={() => handleDelete(kw.id)}
-                      title="Delete"
-                      disabled={loading}
-                    >
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <polyline points="3 6 5 6 21 6" />
-                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                      </svg>
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+              ? "Try a different search term or clear the search box."
+              : "Add your first replacement rule to start fixing misheard words automatically."}
+          </p>
+        </div>
+      ) : (
+        <div className="feature-card-list">
+          {filteredKeywords.map((kw) => (
+            <div
+              key={kw.id}
+              className={`feature-card ${editingId === kw.id ? "active" : ""}`}
+            >
+              <div className="feature-kw-row">
+                <span className="feature-kw-token">{kw.trigger}</span>
+                <span className="feature-kw-arrow" aria-hidden>
+                  <ArrowRight />
+                </span>
+                <span className="feature-kw-token">{kw.correction}</span>
+                <span className="feature-kw-flags">
+                  {kw.wholeWord && (
+                    <span className="feature-flag" title="Whole word only">WW</span>
+                  )}
+                  {kw.caseSensitive && (
+                    <span className="feature-flag" title="Case sensitive">CS</span>
+                  )}
+                  {kw.source === "learned" && (
+                    <span className="feature-flag auto" title="Learned from your corrections">
+                      auto
+                    </span>
+                  )}
+                  <span className="feature-kw-count" title="Times applied">
+                    {kw.usageCount}×
+                  </span>
+                </span>
+                <span className="feature-kw-actions">
+                  <button
+                    className="feature-icon-btn"
+                    onClick={() => handleEdit(kw)}
+                    title="Edit"
+                    aria-label="Edit"
+                    disabled={loading}
+                  >
+                    <Pencil />
+                  </button>
+                  <button
+                    className="feature-icon-btn danger"
+                    onClick={() => handleDelete(kw.id)}
+                    title="Delete"
+                    aria-label="Delete"
+                    disabled={loading}
+                  >
+                    <Trash2 />
+                  </button>
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
-      {/* Clear All */}
       {keywords.length > 0 && (
-        <div className="keywords-footer">
+        <div className="feature-toolbar" style={{ justifyContent: "flex-end" }}>
           {showDeleteConfirm ? (
-            <div className="delete-confirm">
+            <div className="feature-confirm">
               <span>Delete all {keywords.length} keywords?</span>
-              <button className="btn btn-sm" onClick={() => setShowDeleteConfirm(false)}>
+              <button
+                className="feature-btn ghost"
+                onClick={() => setShowDeleteConfirm(false)}
+              >
                 Cancel
               </button>
               <button
-                className="btn btn-sm danger"
+                className="feature-btn danger"
                 onClick={handleClearAll}
                 disabled={loading}
               >
-                Delete All
+                Delete all
               </button>
             </div>
           ) : (
             <button
-              className="btn btn-sm danger-outline"
+              className="feature-btn danger"
               onClick={() => setShowDeleteConfirm(true)}
               disabled={loading}
             >
-              Clear All Keywords
+              <Trash2 />
+              Clear all keywords
             </button>
           )}
         </div>

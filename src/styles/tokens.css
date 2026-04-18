@@ -151,6 +151,15 @@
   --glow-processing: 0 0 20px rgba(255, 214, 10, 0.35);
   --glow-refining:   0 0 24px rgba(191, 90, 242, 0.40);
   --glow-success:    0 0 20px rgba(48, 209, 88, 0.40);
+
+  /* Legacy aliases — older stylesheets (templates.css, formatting.css,
+   * clipboard-history.css) reference these names. Keep as aliases so those
+   * files render correctly without a rewrite pass. */
+  --surface:        var(--bg-surface);
+  --surface-hover:  var(--bg-hover);
+  --border:         var(--border-default);
+  --border-hover:   var(--border-strong);
+  --text:           var(--text-primary);
 }
 
 /* ========================================================================
@@ -218,6 +227,12 @@
   --glow-processing: 0 0 20px rgba(255, 159, 10, 0.30);
   --glow-refining:   0 0 24px rgba(175, 82, 222, 0.35);
   --glow-success:    0 0 20px rgba(52, 199, 89, 0.35);
+
+  --surface:        var(--bg-surface);
+  --surface-hover:  var(--bg-hover);
+  --border:         var(--border-default);
+  --border-hover:   var(--border-strong);
+  --text:           var(--text-primary);
 }
 
 /* System preference follow (only when no explicit [data-theme] is set) */

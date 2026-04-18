@@ -1,4 +1,7 @@
 import { execFile } from "node:child_process";
+import { buildWindowsFocusRestoreScript } from "../src/lib/windows-focus-script";
+
+export { buildWindowsFocusRestoreScript };
 
 export interface FocusSnapshot {
   platform: NodeJS.Platform;
@@ -71,28 +74,7 @@ async function restoreWindowsFocus(snapshot: FocusSnapshot): Promise<boolean> {
     return false;
   }
 
-  const script = `
-Add-Type @"
-using System;
-using System.Runtime.InteropServices;
-public static class FocusInterop {
-  [DllImport("user32.dll")]
-  public static extern bool IsWindow(IntPtr hWnd);
-  [DllImport("user32.dll")]
-  public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
-  [DllImport("user32.dll")]
-  public static extern bool SetForegroundWindow(IntPtr hWnd);
-}
-"@
-$handle = [IntPtr]::new([Int64]::Parse("${snapshot.windowId}"))
-if (-not [FocusInterop]::IsWindow($handle)) {
-  Write-Output "false"
-  exit 0
-}
-[void][FocusInterop]::ShowWindowAsync($handle, 9)
-$ok = [FocusInterop]::SetForegroundWindow($handle)
-if ($ok) { Write-Output "true" } else { Write-Output "false" }
-`;
+  const script = buildWindowsFocusRestoreScript(snapshot.windowId);
   const { stdout } = await execFileAsync("powershell", powershellEncodedCommand(script), 3500);
   return stdout.trim().toLowerCase() === "true";
 }

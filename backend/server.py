@@ -15,8 +15,9 @@ import threading
 from contextlib import asynccontextmanager
 from dataclasses import asdict
 
-from fastapi import Body, FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import JSONResponse
+from fastapi import Body, FastAPI, Query, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, StreamingResponse
 import uvicorn
 
 from config import (
@@ -40,6 +41,7 @@ from audio_enhancer import (
     set_enhancement_config,
     get_enhancement_config,
 )
+import ai_pipeline
 
 logging.basicConfig(
     level=logging.INFO,
@@ -264,6 +266,19 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="VoiceToText Backend", lifespan=lifespan)
 
+# Electron renderer loads from file:// (Origin: "null") in production and
+# from http://localhost:* in dev. Without these headers Chromium rejects
+# every fetch even though FastAPI replies 200 OK — surfacing as the generic
+# "Failed to fetch" error on the Load models button.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["*"],
+)
+
 
 @app.get("/health")
 async def health():
@@ -428,6 +443,77 @@ async def model_load(model: str = WHISPER_MODEL):
     thread.start()
 
     return JSONResponse({"status": "loading", "model": model})
+
+
+@app.get("/ai/models")
+async def ai_models(key: str = Query("", description="Gemini API key"), force: bool = False):
+    """
+    Proxy Google's ListModels so the frontend never ships the API key to any
+    third-party host. Filters to models that support generateContent and
+    caches per-key for 24 h. Pass ?force=true to bust the cache.
+    """
+    if not key:
+        return JSONResponse({"status": "error", "message": "Missing api key"}, status_code=400)
+    try:
+        models = await ai_pipeline.list_models(key, force=force)
+    except Exception as e:
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=502)
+    return JSONResponse({"status": "ok", "models": models})
+
+
+@app.post("/ai/refine")
+async def ai_refine(payload: dict = Body(default={})):
+    """
+    Two-step Gemini pipeline (analyze -> adjust) streamed as SSE so the UI
+    can show progress between the two model calls without long silence.
+
+    Body:
+      text          : transcript to refine (required)
+      source_lang   : language code of transcript, e.g. "ko", "en", "auto"
+      target_lang   : UI/output language, e.g. "en", "ko"
+      mode          : "refine" | "translate" | "summarize-translate"
+      template      : optional user style/context prompt
+      api_key       : Gemini API key (required)
+      model         : Gemini model id (default gemini-2.5-flash)
+    """
+    text = (payload.get("text") or "").strip()
+    api_key = payload.get("api_key") or ""
+    if not text:
+        return JSONResponse({"status": "error", "message": "Empty text"}, status_code=400)
+    if not api_key:
+        return JSONResponse({"status": "error", "message": "Missing api_key"}, status_code=400)
+
+    source_lang = payload.get("source_lang") or "auto"
+    target_lang = payload.get("target_lang") or "en"
+    mode = payload.get("mode") or "refine"
+    template = payload.get("template") or None
+    model = payload.get("model") or ai_pipeline.DEFAULT_MODEL
+
+    async def sse() -> object:
+        # SSE frame = "event: <name>\ndata: <json>\n\n". We always emit data
+        # even on bare markers so EventSource clients treat them as messages.
+        async for evt in ai_pipeline.refine_stream(
+            text=text,
+            source_lang=source_lang,
+            target_lang=target_lang,
+            mode=mode,
+            template_prompt=template,
+            api_key=api_key,
+            model=model,
+        ):
+            name = evt.get("event", "message")
+            data = evt.get("data", {})
+            frame = f"event: {name}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+            yield frame.encode("utf-8")
+
+    return StreamingResponse(
+        sse(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @app.websocket("/ws/model")

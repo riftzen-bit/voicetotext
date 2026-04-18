@@ -24,6 +24,10 @@ const DEFAULTS: Record<string, unknown> = {
   hotkey: "CommandOrControl+Shift+R",
   cancelHotkey: "Escape",
   autoPaste: true,
+  // Keep the transcribed text on the user's clipboard after a run. When this
+  // is false we still allow auto-paste but we save and restore whatever was
+  // previously on the clipboard so the user's Ctrl+V history is untouched.
+  copyToClipboard: true,
   audioDevice: "default",
   modelSize: "large-v3",
   transcriptionProfile: "balanced",

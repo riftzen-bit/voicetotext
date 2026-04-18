@@ -38,6 +38,14 @@ let pttPollInterval: ReturnType<typeof setInterval> | null = null;
 const PTT_POLL_MS = 30; // Reduced from 80ms for faster response
 const PTT_KEY_REPEAT_GAP_MS = 150; // Reduced from 600ms - faster key repeat detection
 const PTT_RELEASE_DETECT_MS = 120; // Reduced from 400ms - faster release detection
+// Fallback for short taps where Windows' InitialKeyboardDelay (user-configurable
+// 250-1000 ms, default ~500 ms) means NO key-repeat event ever fires. Without
+// this the release handler in the poll below could never trigger, leaving
+// `isRecording` stuck true — mic stays open and the `/api/mute` mute held on
+// until the user presses the hotkey again. Must exceed the max possible
+// InitialKeyboardDelay (1000 ms) plus a small buffer to avoid falsely
+// cancelling a long hold whose first repeat is still pending.
+const PTT_NO_REPEAT_TIMEOUT_MS = 1100;
 
 let overlayWinRef: BrowserWindow | null = null;
 
@@ -155,9 +163,21 @@ function startPttPolling(overlayWin: BrowserWindow) {
 
     const elapsed = Date.now() - pttLastFireTime;
 
+    // Normal release path: once we've seen at least one key-repeat event, a
+    // short gap since the last one means the user let go.
     if (pttKeyRepeatDetected && elapsed > PTT_RELEASE_DETECT_MS) {
       isRecording = false;
       pttKeyRepeatDetected = false;
+      overlayWin.webContents.send("recording-state", "stop");
+      stopPttPolling();
+      return;
+    }
+
+    // Fallback: no repeat ever fired (short tap, or the OS's InitialKeyboardDelay
+    // outran the user's hold). Without this the poll would never stop and the
+    // mic + `/api/mute` mute would stay on until the next hotkey press.
+    if (!pttKeyRepeatDetected && elapsed > PTT_NO_REPEAT_TIMEOUT_MS) {
+      isRecording = false;
       overlayWin.webContents.send("recording-state", "stop");
       stopPttPolling();
     }

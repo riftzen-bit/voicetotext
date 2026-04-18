@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { Info, RotateCcw, Keyboard, Sparkles } from "lucide-react";
 import { AppSettings, useSettings } from "../hooks/useSettings";
 
 const MODIFIER_KEYS = new Set(["Control", "Alt", "Shift", "Meta"]);
@@ -8,7 +9,6 @@ function isValidHotkey(hotkey: string): boolean {
   const parts = hotkey.split("+").filter(Boolean);
   if (parts.length === 0) return false;
   const lastPart = parts[parts.length - 1];
-  // Last part must NOT be a modifier
   return !MODIFIER_KEYS.has(lastPart);
 }
 
@@ -21,7 +21,6 @@ interface Shortcut {
   configurable: boolean;
 }
 
-// Maps shortcut IDs to their corresponding AppSettings keys
 const HOTKEY_SETTING_MAP: Record<string, keyof AppSettings> = {
   hotkey: "hotkey",
   cancel: "cancelHotkey",
@@ -116,29 +115,24 @@ export default function ShortcutsView() {
     setIsListening(true);
   };
 
-  // Focus input when listening starts
   useEffect(() => {
     if (isListening && inputRef.current) {
       inputRef.current.focus();
     }
   }, [isListening]);
 
-  // Block mouse clicks during key detection by capturing pointer events
   useEffect(() => {
     if (!isListening) return;
 
     const handleGlobalMouseDown = (e: MouseEvent) => {
-      // Allow clicks on the overlay (which contains Cancel/Save buttons)
       const overlay = overlayRef.current;
       if (overlay && overlay.contains(e.target as Node)) {
         return;
       }
-      // Block all other mouse events
       e.preventDefault();
       e.stopPropagation();
     };
 
-    // Capture phase to intercept before other handlers
     document.addEventListener("mousedown", handleGlobalMouseDown, true);
     document.addEventListener("click", handleGlobalMouseDown, true);
     document.addEventListener("contextmenu", handleGlobalMouseDown, true);
@@ -164,7 +158,6 @@ export default function ShortcutsView() {
 
     const key = e.key;
 
-    // If only modifier keys are pressed, show them but mark as incomplete
     if (MODIFIER_KEYS.has(key)) {
       const partialCombo = modifiers.join("+") + "+";
       setEditingKey(partialCombo);
@@ -172,7 +165,6 @@ export default function ShortcutsView() {
       return;
     }
 
-    // Map special key names to Electron accelerator format
     let keyName: string;
     if (key.length === 1) {
       keyName = key.toUpperCase();
@@ -218,7 +210,6 @@ export default function ShortcutsView() {
     }
   };
 
-  // Group shortcuts by category
   const groupedShortcuts = SHORTCUTS.reduce((acc, shortcut) => {
     if (!acc[shortcut.category]) {
       acc[shortcut.category] = [];
@@ -236,98 +227,132 @@ export default function ShortcutsView() {
     return shortcut.defaultKey;
   };
 
+  const configurableCount = SHORTCUTS.filter((s) => s.configurable).length;
+
   return (
-    <div className="shortcuts-view">
-      <h2 className="section-header">Keyboard Shortcuts</h2>
-      <p className="section-description">
-        View and customize keyboard shortcuts. Click on a configurable shortcut to change it.
-      </p>
-
-      {Object.entries(groupedShortcuts).map(([category, shortcuts]) => (
-        <div key={category} className="shortcuts-group">
-          <h3 className="subsection-header">{CATEGORY_LABELS[category]}</h3>
-          <div className="shortcuts-list">
-            {shortcuts.map((shortcut) => {
-              const isEditing = editingId === shortcut.id;
-              const currentKey = getCurrentKey(shortcut);
-              const isModified = shortcut.configurable && currentKey !== shortcut.defaultKey;
-
-              return (
-                <div
-                  key={shortcut.id}
-                  className={`shortcut-row ${shortcut.configurable ? "configurable" : ""} ${isEditing ? "editing" : ""}`}
-                  onClick={() => handleEdit(shortcut)}
-                >
-                  <div className="shortcut-info">
-                    <div className="shortcut-label">
-                      {shortcut.label}
-                      {isModified && <span className="modified-badge">Modified</span>}
-                    </div>
-                    <div className="shortcut-description">{shortcut.description}</div>
-                  </div>
-
-                  <div className="shortcut-key">
-                    {isEditing ? (
-                      <div className="key-editor" ref={overlayRef}>
-                        <input
-                          ref={inputRef}
-                          type="text"
-                          className={`form-input key-input ${editingKey && !isValidKey ? "invalid" : ""} ${isValidKey ? "valid" : ""}`}
-                          value={editingKey || "Press keys..."}
-                          onKeyDown={handleKeyDown}
-                          placeholder="Press keys..."
-                          readOnly
-                          autoFocus
-                        />
-                        <div className="key-editor-hint">
-                          {!editingKey && "Press a key combination (e.g. Ctrl+Shift+R)"}
-                          {editingKey && !isValidKey && "Complete the combination with a non-modifier key"}
-                          {isValidKey && "Valid hotkey - click Save to apply"}
-                        </div>
-                        <div className="key-editor-actions">
-                          <button className="btn btn-sm" onClick={(e) => { e.stopPropagation(); handleCancel(); }}>
-                            Cancel
-                          </button>
-                          <button
-                            className="btn btn-sm btn-primary"
-                            onClick={(e) => { e.stopPropagation(); handleSave(); }}
-                            disabled={!isValidKey}
-                          >
-                            Save
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        {formatKey(currentKey)}
-                        {shortcut.configurable && isModified && (
-                          <button
-                            className="reset-btn"
-                            onClick={(e) => { e.stopPropagation(); handleReset(shortcut); }}
-                            title="Reset to default"
-                          >
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                              <path d="M3 3v5h5" />
-                            </svg>
-                          </button>
-                        )}
-                      </>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+    <div className="shortcuts-view feature-view feature-view--wide">
+      <header className="feature-hero">
+        <span className="feature-medallion tone-graphite" aria-hidden>
+          <Keyboard />
+        </span>
+        <div className="feature-hero-body">
+          <span className="feature-hero-eyebrow">
+            <Sparkles size={12} strokeWidth={2.5} /> Controls
+          </span>
+          <h1 className="feature-hero-title">Keyboard Shortcuts</h1>
+          <p className="feature-hero-description">
+            View every hotkey in one place and re-bind the ones you use most.
+            Click a configurable row, then press the combination you want.
+          </p>
+          <div className="feature-hero-meta">
+            <span className="feature-chip accent">
+              {configurableCount} configurable
+            </span>
+            <span className="feature-chip">
+              {SHORTCUTS.length} total shortcuts
+            </span>
           </div>
         </div>
+      </header>
+
+      {Object.entries(groupedShortcuts).map(([category, shortcuts]) => (
+        <section key={category} className="feature-card-list shortcut-group">
+          <h3 className="feature-section-title">{CATEGORY_LABELS[category]}</h3>
+          {shortcuts.map((shortcut) => {
+            const isEditing = editingId === shortcut.id;
+            const currentKey = getCurrentKey(shortcut);
+            const isModified = shortcut.configurable && currentKey !== shortcut.defaultKey;
+
+            return (
+              <div
+                key={shortcut.id}
+                className={`feature-card shortcut-card ${
+                  shortcut.configurable ? "interactive" : ""
+                } ${isEditing ? "active" : ""}`}
+                onClick={() => handleEdit(shortcut)}
+              >
+                <div className="shortcut-card-main">
+                  <div className="shortcut-card-title-row">
+                    <h4 className="shortcut-card-title">{shortcut.label}</h4>
+                    {isModified && (
+                      <span className="feature-chip accent">Modified</span>
+                    )}
+                    {!shortcut.configurable && (
+                      <span className="feature-chip">Fixed</span>
+                    )}
+                  </div>
+                  <p className="shortcut-card-description">{shortcut.description}</p>
+                </div>
+
+                <div className="shortcut-card-key">
+                  {isEditing ? (
+                    <div className="key-editor" ref={overlayRef}>
+                      <input
+                        ref={inputRef}
+                        type="text"
+                        className={`feature-input key-input ${
+                          editingKey && !isValidKey ? "invalid" : ""
+                        } ${isValidKey ? "valid" : ""}`}
+                        value={editingKey || "Press keys..."}
+                        onKeyDown={handleKeyDown}
+                        placeholder="Press keys..."
+                        readOnly
+                        autoFocus
+                      />
+                      <div className="key-editor-hint">
+                        {!editingKey && "Press a key combination (e.g. Ctrl+Shift+R)"}
+                        {editingKey && !isValidKey && "Complete the combination with a non-modifier key"}
+                        {isValidKey && "Valid hotkey — click Save to apply"}
+                      </div>
+                      <div className="key-editor-actions">
+                        <button
+                          className="feature-btn ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCancel();
+                          }}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          className="feature-btn primary"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSave();
+                          }}
+                          disabled={!isValidKey}
+                        >
+                          Save
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      {formatKey(currentKey)}
+                      {shortcut.configurable && isModified && (
+                        <button
+                          className="feature-icon-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleReset(shortcut);
+                          }}
+                          title="Reset to default"
+                          aria-label="Reset to default"
+                        >
+                          <RotateCcw />
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </section>
       ))}
 
-      <div className="shortcuts-note">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="10" />
-          <line x1="12" y1="16" x2="12" y2="12" />
-          <line x1="12" y1="8" x2="12.01" y2="8" />
-        </svg>
+      <div className="feature-note shortcuts-note">
+        <Info size={18} strokeWidth={2} />
         <span>Global hotkeys work even when the app is not focused.</span>
       </div>
     </div>

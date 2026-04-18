@@ -4,7 +4,14 @@ import { useAudioCapture } from "./useAudioCapture";
 import { useWebSocket, TranscriptionMessage } from "./useWebSocket";
 import { useSettings } from "./useSettings";
 import { playSound } from "../lib/sounds";
-import { refineTextWithGemini } from "../lib/gemini";
+import { refineTextWithGemini, generateWithGemini } from "../lib/gemini";
+import { refineWithPipeline } from "../lib/ai";
+import { withTimeout } from "../lib/with-timeout";
+
+// Cap AI refinement so a hung Gemini call can't strand a 5+ minute recording
+// in the "refining" phase forever. The raw transcript is saved to history
+// before this runs, so a timeout gracefully falls back to raw.
+const AI_REFINEMENT_TIMEOUT_MS = 60_000;
 
 export type RecordingPhase = "idle" | "recording" | "processing" | "refining" | "done" | "error";
 
@@ -263,34 +270,117 @@ export function useTranscription(enableWs = true) {
           break;
 
         case "result": {
-          let text = msg.text || "";
+          const rawText = msg.text || "";
+          const api = getApi();
+
+          // Save raw transcript to history IMMEDIATELY so a hung or failing
+          // AI refinement can never wipe out a long recording. We'll patch
+          // this same entry in place if refinement produces different text.
+          const entryId = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+          const baseEntry: TranscriptionEntry = {
+            id: entryId,
+            text: rawText,
+            language: msg.language || "unknown",
+            confidence: msg.language_probability || 0,
+            duration: msg.duration || 0,
+            timestamp: Date.now(),
+            refined: false,
+            category: classifyText(rawText),
+          };
+          if (api && rawText.length > 0) {
+            api.addHistory(baseEntry);
+          }
+
+          let text = rawText;
           let wasRefined = false;
 
-          // AI Refinement Step (skip if code mode is active)
-          if (settings.useGemini && settings.geminiApiKey && text.length > 0 && !settings.codeMode) {
+          // Resolve the active template FIRST — its existence changes whether
+          // we run AI at all. A user who explicitly activated a template has
+          // opted into AI; the separate `useGemini` toggle is legacy and
+          // shouldn't override that intent. Code mode (explicit opt-out) still
+          // wins, and we always require an API key.
+          const templates = settings.contextTemplates as Array<{ id: string; prompt: string; mode?: "polish" | "agent" }> | undefined;
+          const activeTemplateId = settings.activeTemplateId as string | undefined;
+          const activeTemplate = templates?.find(t => t.id === activeTemplateId);
+          const contextPrompt = activeTemplate?.prompt;
+          const isAgentTemplate = activeTemplate?.mode === "agent";
+
+          const aiEligible =
+            Boolean(settings.geminiApiKey) &&
+            text.length > 0 &&
+            !settings.codeMode &&
+            (settings.useGemini || Boolean(activeTemplate));
+
+          if (aiEligible) {
             setPhase("refining");
             phaseRef.current = "refining";
 
-            // Get active template prompt if set
-            const templates = settings.contextTemplates as Array<{ id: string; prompt: string }> | undefined;
-            const activeTemplateId = settings.activeTemplateId as string | undefined;
-            const activeTemplate = templates?.find(t => t.id === activeTemplateId);
-            const contextPrompt = activeTemplate?.prompt;
-
-            const refinedText = await refineTextWithGemini(
-              text,
-              settings.geminiApiKey,
-              settings.geminiModel,
-              contextPrompt
-            );
-            if (refinedText && refinedText !== text) {
-              text = refinedText;
-              wasRefined = true;
+            const mode = settings.aiMode;
+            try {
+              if (isAgentTemplate && contextPrompt) {
+                // Agent template owns the prompt — transcript is the user request.
+                // Bypass the pipeline + polish base prompt entirely.
+                const reply = await withTimeout(
+                  generateWithGemini(
+                    text,
+                    settings.geminiApiKey,
+                    settings.geminiModel,
+                    contextPrompt,
+                  ),
+                  AI_REFINEMENT_TIMEOUT_MS,
+                  "Gemini agent",
+                );
+                if (reply && reply !== text) {
+                  text = reply;
+                  wasRefined = true;
+                }
+              } else if (mode && mode !== "off") {
+                const sourceLang =
+                  msg.language && (msg.language_probability ?? 0) > 0.6
+                    ? msg.language
+                    : "auto";
+                const result = await withTimeout(
+                  refineWithPipeline({
+                    text,
+                    sourceLang,
+                    targetLang: settings.uiLanguage || "en",
+                    mode,
+                    template: contextPrompt,
+                    apiKey: settings.geminiApiKey,
+                    model: settings.geminiModel,
+                  }),
+                  AI_REFINEMENT_TIMEOUT_MS,
+                  "AI pipeline"
+                );
+                if (result.text && result.text !== text) {
+                  text = result.text;
+                  wasRefined = true;
+                }
+              } else {
+                const refinedText = await withTimeout(
+                  refineTextWithGemini(
+                    text,
+                    settings.geminiApiKey,
+                    settings.geminiModel,
+                    contextPrompt
+                  ),
+                  AI_REFINEMENT_TIMEOUT_MS,
+                  "Gemini polish"
+                );
+                if (refinedText && refinedText !== text) {
+                  text = refinedText;
+                  wasRefined = true;
+                }
+              }
+            } catch (err) {
+              console.warn(
+                "AI refinement failed or timed out, keeping raw transcript:",
+                err
+              );
             }
           }
 
           // Apply keyword corrections
-          const api = getApi();
           if (api && text.length > 0) {
             try {
               const result = await api.applyKeywords(text);
@@ -305,22 +395,26 @@ export function useTranscription(enableWs = true) {
           setPhase("done");
           phaseRef.current = "idle";
 
-          const entry: TranscriptionEntry = {
-            id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-            text,
-            language: msg.language || "unknown",
-            confidence: msg.language_probability || 0,
-            duration: msg.duration || 0,
-            timestamp: Date.now(),
-            refined: wasRefined,
-            category: classifyText(text),
-          };
+          // If refinement or keyword correction changed the text, patch the
+          // already-saved history entry in place. Otherwise the raw entry is
+          // already correct.
+          if (api && text !== rawText) {
+            try {
+              await api.updateHistory(entryId, {
+                text,
+                refined: wasRefined,
+                category: classifyText(text),
+              });
+            } catch (err) {
+              console.warn("Failed to update history entry with refined text:", err);
+            }
+          }
 
           if (api) {
-            api.addHistory(entry);
-            if (settings.autoPaste) {
-              api.pasteText(text);
-            }
+            // Always hand off to the main process. Main gates on the
+            // autoPaste + copyToClipboard pair and decides whether to write
+            // clipboard, simulate paste, both, or nothing.
+            api.pasteText(text);
           }
 
           setTimeout(() => {

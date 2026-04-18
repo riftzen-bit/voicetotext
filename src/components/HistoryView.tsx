@@ -1,4 +1,14 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
+import {
+  Copy,
+  Pencil,
+  Trash2,
+  Check,
+  X,
+  Search,
+  Sparkles,
+  Inbox,
+} from "lucide-react";
 import type { TranscriptionEntry } from "../hooks/useTranscription";
 
 interface HistoryViewProps {
@@ -9,63 +19,77 @@ interface HistoryViewProps {
   onDelete?: (id: string) => Promise<boolean>;
 }
 
-function formatTime(ts: number): string {
+function formatAbsoluteTime(ts: number): string {
   const d = new Date(ts);
-  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  return d.toLocaleString([], {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
-function CopyIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-    </svg>
-  );
+function formatClock(ts: number): string {
+  return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-function EditIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-    </svg>
-  );
+function formatRelative(ts: number, now: number): string {
+  const diff = Math.max(0, now - ts);
+  const s = Math.floor(diff / 1000);
+  if (s < 45) return "just now";
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m} min ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h} hr ago`;
+  const d = Math.floor(h / 24);
+  if (d < 7) return `${d} day${d === 1 ? "" : "s"} ago`;
+  return formatClock(ts);
 }
 
-function DeleteIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="3 6 5 6 21 6" />
-      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-    </svg>
-  );
+function dayKey(ts: number): string {
+  const d = new Date(ts);
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 }
 
-function CheckIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  );
-}
+function dayLabel(ts: number, now: number): string {
+  const today = new Date(now);
+  const d = new Date(ts);
+  const sameDay =
+    d.getFullYear() === today.getFullYear() &&
+    d.getMonth() === today.getMonth() &&
+    d.getDate() === today.getDate();
+  if (sameDay) return "Today";
 
-function XIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="18" y1="6" x2="6" y2="18" />
-      <line x1="6" y1="6" x2="18" y2="18" />
-    </svg>
-  );
+  const yest = new Date(now - 86400000);
+  const isYest =
+    d.getFullYear() === yest.getFullYear() &&
+    d.getMonth() === yest.getMonth() &&
+    d.getDate() === yest.getDate();
+  if (isYest) return "Yesterday";
+
+  const weekAgo = now - 7 * 86400000;
+  if (ts > weekAgo) {
+    return d.toLocaleDateString([], { weekday: "long" });
+  }
+
+  const thisYear = d.getFullYear() === today.getFullYear();
+  return d.toLocaleDateString([], {
+    month: "long",
+    day: "numeric",
+    year: thisYear ? undefined : "numeric",
+  });
 }
 
 interface HistoryItemProps {
   entry: TranscriptionEntry;
+  now: number;
   onCopy: (text: string) => void;
   onUpdate?: (id: string, partial: Partial<Omit<TranscriptionEntry, "id">>) => Promise<TranscriptionEntry | null>;
   onDelete?: (id: string) => Promise<boolean>;
 }
 
-function HistoryItem({ entry, onCopy, onUpdate, onDelete }: HistoryItemProps) {
+function HistoryItem({ entry, now, onCopy, onUpdate, onDelete }: HistoryItemProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(entry.text);
   const [copyFeedback, setCopyFeedback] = useState(false);
@@ -75,7 +99,6 @@ function HistoryItem({ entry, onCopy, onUpdate, onDelete }: HistoryItemProps) {
     if (isEditing && textareaRef.current) {
       textareaRef.current.focus();
       textareaRef.current.select();
-      // Auto-resize textarea
       textareaRef.current.style.height = "auto";
       textareaRef.current.style.height = textareaRef.current.scrollHeight + "px";
     }
@@ -129,7 +152,6 @@ function HistoryItem({ entry, onCopy, onUpdate, onDelete }: HistoryItemProps) {
 
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setEditText(e.target.value);
-    // Auto-resize
     e.target.style.height = "auto";
     e.target.style.height = e.target.scrollHeight + "px";
   };
@@ -137,7 +159,10 @@ function HistoryItem({ entry, onCopy, onUpdate, onDelete }: HistoryItemProps) {
   return (
     <div className={`history-item ${isEditing ? "editing" : ""}`}>
       <div className="history-item-header">
-        <div className="history-time">{formatTime(entry.timestamp)}</div>
+        <div className="history-time" title={formatAbsoluteTime(entry.timestamp)}>
+          {formatRelative(entry.timestamp, now)}
+          <span className="history-clock">{formatClock(entry.timestamp)}</span>
+        </div>
         <div className="history-actions">
           {isEditing ? (
             <>
@@ -146,14 +171,14 @@ function HistoryItem({ entry, onCopy, onUpdate, onDelete }: HistoryItemProps) {
                 onClick={handleSave}
                 title="Save (Ctrl+Enter)"
               >
-                <CheckIcon />
+                <Check size={14} strokeWidth={2.5} />
               </button>
               <button
                 className="history-action-btn cancel"
                 onClick={handleCancel}
                 title="Cancel (Esc)"
               >
-                <XIcon />
+                <X size={14} strokeWidth={2} />
               </button>
             </>
           ) : (
@@ -163,7 +188,7 @@ function HistoryItem({ entry, onCopy, onUpdate, onDelete }: HistoryItemProps) {
                 onClick={handleCopy}
                 title="Copy"
               >
-                {copyFeedback ? <CheckIcon /> : <CopyIcon />}
+                {copyFeedback ? <Check size={14} strokeWidth={2.5} /> : <Copy size={14} strokeWidth={2} />}
               </button>
               {onUpdate && (
                 <button
@@ -171,7 +196,7 @@ function HistoryItem({ entry, onCopy, onUpdate, onDelete }: HistoryItemProps) {
                   onClick={handleEdit}
                   title="Edit"
                 >
-                  <EditIcon />
+                  <Pencil size={14} strokeWidth={2} />
                 </button>
               )}
               {onDelete && (
@@ -180,7 +205,7 @@ function HistoryItem({ entry, onCopy, onUpdate, onDelete }: HistoryItemProps) {
                   onClick={handleDelete}
                   title="Delete"
                 >
-                  <DeleteIcon />
+                  <Trash2 size={14} strokeWidth={2} />
                 </button>
               )}
             </>
@@ -203,26 +228,68 @@ function HistoryItem({ entry, onCopy, onUpdate, onDelete }: HistoryItemProps) {
 
       <div className="history-meta">
         <span className="history-lang">{entry.language}</span>
+        <span className="history-dot">·</span>
+        <span className="history-duration">{entry.duration.toFixed(1)}s</span>
         {entry.refined && (
-          <span className="history-refined">
-            <CheckIcon />
-            Refined
-          </span>
+          <>
+            <span className="history-dot">·</span>
+            <span className="history-refined">
+              <Sparkles size={11} strokeWidth={2.25} />
+              Refined
+            </span>
+          </>
         )}
-        <span>{entry.duration.toFixed(1)}s</span>
       </div>
     </div>
   );
 }
 
 export default function HistoryView({ entries, onClear, onCopy, onUpdate, onDelete }: HistoryViewProps) {
+  const [query, setQuery] = useState("");
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30000);
+    return () => clearInterval(id);
+  }, []);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return entries;
+    return entries.filter(
+      (e) =>
+        e.text.toLowerCase().includes(q) ||
+        (e.language || "").toLowerCase().includes(q),
+    );
+  }, [entries, query]);
+
+  const groups = useMemo(() => {
+    const map = new Map<string, { label: string; items: TranscriptionEntry[] }>();
+    for (const e of filtered) {
+      const k = dayKey(e.timestamp);
+      const existing = map.get(k);
+      if (existing) {
+        existing.items.push(e);
+      } else {
+        map.set(k, { label: dayLabel(e.timestamp, now), items: [e] });
+      }
+    }
+    return Array.from(map.values());
+  }, [filtered, now]);
+
   if (entries.length === 0) {
     return (
       <div className="history-section">
         <div className="history-header">
           <h2 className="history-title">Transcript</h2>
         </div>
-        <div className="history-empty">No transcriptions yet.</div>
+        <div className="history-empty">
+          <div className="history-empty-icon">
+            <Inbox size={28} strokeWidth={1.75} />
+          </div>
+          <p className="history-empty-title">No transcriptions yet</p>
+          <p className="history-empty-sub">Record some audio to build your transcript history.</p>
+        </div>
       </div>
     );
   }
@@ -232,23 +299,57 @@ export default function HistoryView({ entries, onClear, onCopy, onUpdate, onDele
       <div className="history-header">
         <h2 className="history-title">
           Transcript
-          <span className="history-count">[{entries.length}]</span>
+          <span className="history-count">{entries.length}</span>
         </h2>
         <button className="btn btn-clear" onClick={onClear}>
-          Clear All
+          Clear all
         </button>
       </div>
 
+      <div className="history-search">
+        <Search size={14} strokeWidth={2} className="history-search-icon" />
+        <input
+          type="search"
+          placeholder="Search transcripts"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          className="history-search-input"
+        />
+        {query && (
+          <button
+            className="history-search-clear"
+            onClick={() => setQuery("")}
+            title="Clear search"
+          >
+            <X size={12} strokeWidth={2} />
+          </button>
+        )}
+      </div>
+
       <div className="history-list">
-        {entries.map((e) => (
-          <HistoryItem
-            key={e.id}
-            entry={e}
-            onCopy={onCopy}
-            onUpdate={onUpdate}
-            onDelete={onDelete}
-          />
-        ))}
+        {filtered.length === 0 ? (
+          <div className="history-empty history-empty-compact">
+            <p>No matches for "{query}".</p>
+          </div>
+        ) : (
+          groups.map((g) => (
+            <section key={g.label} className="history-day">
+              <h3 className="history-day-label">{g.label}</h3>
+              <div className="history-day-items">
+                {g.items.map((e) => (
+                  <HistoryItem
+                    key={e.id}
+                    entry={e}
+                    now={now}
+                    onCopy={onCopy}
+                    onUpdate={onUpdate}
+                    onDelete={onDelete}
+                  />
+                ))}
+              </div>
+            </section>
+          ))
+        )}
       </div>
     </div>
   );

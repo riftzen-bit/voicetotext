@@ -14,7 +14,7 @@ export interface TranscriptionEntry {
 
 let historyData: TranscriptionEntry[] = [];
 let historyFilePath = "";
-const MAX_HISTORY = 200;
+const MAX_HISTORY = 2000;
 
 function getFilePath(): string {
   if (!historyFilePath) {
@@ -26,9 +26,11 @@ function getFilePath(): string {
 export function loadHistory(): void {
   try {
     const raw = fs.readFileSync(getFilePath(), "utf-8");
-    historyData = JSON.parse(raw);
-    if (!Array.isArray(historyData)) {
-      historyData = [];
+    const parsed = JSON.parse(raw);
+    historyData = Array.isArray(parsed) ? parsed : [];
+    if (historyData.length > MAX_HISTORY) {
+      historyData = historyData.slice(0, MAX_HISTORY);
+      saveHistory();
     }
   } catch {
     historyData = [];

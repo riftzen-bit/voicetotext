@@ -1,21 +1,33 @@
 import { useState, useEffect } from "react";
+import {
+  ArrowRight,
+  RotateCcw,
+  Wand2,
+  Hash,
+  Eye,
+  Sparkles,
+  Type,
+} from "lucide-react";
 import { useSettings } from "../hooks/useSettings";
-import { formatText, previewFormatting, FormattingOptions, DEFAULT_FORMATTING } from "../lib/text-formatter";
+import {
+  previewFormatting,
+  FormattingOptions,
+  DEFAULT_FORMATTING,
+} from "../lib/text-formatter";
 import "../styles/formatting.css";
 
 export default function FormattingView() {
   const { settings, updateSetting } = useSettings();
   const [options, setOptions] = useState<FormattingOptions>(DEFAULT_FORMATTING);
   const [previewText, setPreviewText] = useState(
-    "hello world. this is a test -- with some \"quotes\" and numbers like five or 10."
+    'hello world. this is a test -- with some "quotes" and numbers like five or 10.',
   );
-  const [previewResult, setPreviewResult] = useState<{ before: string; after: string; changes: string[] }>({
-    before: "",
-    after: "",
-    changes: [],
-  });
+  const [previewResult, setPreviewResult] = useState<{
+    before: string;
+    after: string;
+    changes: string[];
+  }>({ before: "", after: "", changes: [] });
 
-  // Load settings
   useEffect(() => {
     const saved = settings.formatting as FormattingOptions | undefined;
     if (saved) {
@@ -23,13 +35,15 @@ export default function FormattingView() {
     }
   }, [settings.formatting]);
 
-  // Update preview when options or text changes
   useEffect(() => {
     const result = previewFormatting(previewText, options);
     setPreviewResult(result);
   }, [previewText, options]);
 
-  const updateOption = async <K extends keyof FormattingOptions>(key: K, value: FormattingOptions[K]) => {
+  const updateOption = async <K extends keyof FormattingOptions>(
+    key: K,
+    value: FormattingOptions[K],
+  ) => {
     const newOptions = { ...options, [key]: value };
     setOptions(newOptions);
     await updateSetting("formatting", newOptions);
@@ -40,124 +54,181 @@ export default function FormattingView() {
     await updateSetting("formatting", DEFAULT_FORMATTING);
   };
 
+  const activeCount =
+    Number(options.autoCapitalize) +
+    Number(options.smartPunctuation) +
+    Number(options.smartQuotes) +
+    Number(options.trimWhitespace) +
+    Number(options.listDetection);
+
   return (
-    <div className="formatting-view">
-      <h2 className="section-header">Smart Formatting</h2>
-      <p className="section-description">
-        Configure automatic text formatting applied after transcription.
-      </p>
+    <div className="formatting-view feature-view feature-view--wide">
+      <header className="feature-hero">
+        <span className="feature-medallion tone-yellow" aria-hidden>
+          <Type />
+        </span>
+        <div className="feature-hero-body">
+          <span className="feature-hero-eyebrow">
+            <Sparkles size={12} strokeWidth={2.5} /> Smart formatting
+          </span>
+          <h1 className="feature-hero-title">Smart Formatting</h1>
+          <p className="feature-hero-description">
+            Automatic text polish applied after every transcription. Capitalise
+            sentences, tidy punctuation, straighten quotes, and detect lists —
+            all before the text reaches the clipboard.
+          </p>
+          <div className="feature-hero-meta">
+            <span className="feature-chip accent">{activeCount} rules on</span>
+            <span className="feature-chip">Number style: {options.numberFormatting}</span>
+          </div>
+        </div>
+        <div className="feature-hero-actions">
+          <button className="feature-btn ghost" onClick={resetToDefaults}>
+            <RotateCcw />
+            Reset defaults
+          </button>
+        </div>
+      </header>
 
-      {/* Formatting Options */}
-      <div className="settings-section">
-        <h3 className="subsection-header">Text Corrections</h3>
+      <section className="feature-card feature-card--flat">
+        <h3 className="feature-section-title">
+          <Wand2 size={18} strokeWidth={2} /> Text corrections
+        </h3>
 
-        <div className="field-row">
-          <div className="field-info">
-            <span className="field-label">Auto-Capitalize</span>
-            <span className="field-hint">Capitalize first letter of sentences</span>
+        <div className="feature-field-row">
+          <div className="feature-field-info">
+            <span className="feature-field-label">Auto-capitalise</span>
+            <span className="feature-field-hint">
+              Capitalise the first letter of every sentence
+            </span>
           </div>
           <div
+            role="switch"
+            aria-checked={options.autoCapitalize}
             className={`toggle-switch ${options.autoCapitalize ? "active" : ""}`}
             onClick={() => updateOption("autoCapitalize", !options.autoCapitalize)}
           />
         </div>
 
-        <div className="field-row">
-          <div className="field-info">
-            <span className="field-label">Smart Punctuation</span>
-            <span className="field-hint">Fix spacing around punctuation, em-dashes</span>
+        <div className="feature-field-row">
+          <div className="feature-field-info">
+            <span className="feature-field-label">Smart punctuation</span>
+            <span className="feature-field-hint">
+              Fix spacing around punctuation and em-dashes
+            </span>
           </div>
           <div
+            role="switch"
+            aria-checked={options.smartPunctuation}
             className={`toggle-switch ${options.smartPunctuation ? "active" : ""}`}
             onClick={() => updateOption("smartPunctuation", !options.smartPunctuation)}
           />
         </div>
 
-        <div className="field-row">
-          <div className="field-info">
-            <span className="field-label">Smart Quotes</span>
-            <span className="field-hint">Convert straight quotes to curly quotes</span>
+        <div className="feature-field-row">
+          <div className="feature-field-info">
+            <span className="feature-field-label">Smart quotes</span>
+            <span className="feature-field-hint">
+              Convert straight quotes to curly typographic quotes
+            </span>
           </div>
           <div
+            role="switch"
+            aria-checked={options.smartQuotes}
             className={`toggle-switch ${options.smartQuotes ? "active" : ""}`}
             onClick={() => updateOption("smartQuotes", !options.smartQuotes)}
           />
         </div>
 
-        <div className="field-row">
-          <div className="field-info">
-            <span className="field-label">Trim Whitespace</span>
-            <span className="field-hint">Remove extra spaces and line breaks</span>
+        <div className="feature-field-row">
+          <div className="feature-field-info">
+            <span className="feature-field-label">Trim whitespace</span>
+            <span className="feature-field-hint">
+              Remove extra spaces and line breaks
+            </span>
           </div>
           <div
+            role="switch"
+            aria-checked={options.trimWhitespace}
             className={`toggle-switch ${options.trimWhitespace ? "active" : ""}`}
             onClick={() => updateOption("trimWhitespace", !options.trimWhitespace)}
           />
         </div>
-      </div>
+      </section>
 
-      <div className="settings-section">
-        <h3 className="subsection-header">Number Formatting</h3>
+      <section className="feature-card feature-card--flat">
+        <h3 className="feature-section-title">
+          <Hash size={18} strokeWidth={2} /> Numbers and lists
+        </h3>
 
-        <div className="field-row">
-          <div className="field-info">
-            <span className="field-label">Number Style</span>
-            <span className="field-hint">How to format spoken numbers</span>
+        <div className="feature-field-row">
+          <div className="feature-field-info">
+            <span className="feature-field-label">Number style</span>
+            <span className="feature-field-hint">How to format spoken numbers</span>
           </div>
           <select
-            className="form-select"
+            className="feature-select"
             value={options.numberFormatting}
-            onChange={(e) => updateOption("numberFormatting", e.target.value as FormattingOptions["numberFormatting"])}
+            onChange={(e) =>
+              updateOption(
+                "numberFormatting",
+                e.target.value as FormattingOptions["numberFormatting"],
+              )
+            }
           >
             <option value="auto">Auto (context-aware)</option>
-            <option value="digits">Always Digits (5, 10, 100)</option>
-            <option value="words">Always Words (five, ten)</option>
+            <option value="digits">Always digits (5, 10, 100)</option>
+            <option value="words">Always words (five, ten)</option>
           </select>
         </div>
 
-        <div className="field-row">
-          <div className="field-info">
-            <span className="field-label">List Detection</span>
-            <span className="field-hint">Format detected lists with bullets/numbers</span>
+        <div className="feature-field-row">
+          <div className="feature-field-info">
+            <span className="feature-field-label">List detection</span>
+            <span className="feature-field-hint">
+              Format detected lists with bullets or numbers
+            </span>
           </div>
           <div
+            role="switch"
+            aria-checked={options.listDetection}
             className={`toggle-switch ${options.listDetection ? "active" : ""}`}
             onClick={() => updateOption("listDetection", !options.listDetection)}
           />
         </div>
-      </div>
+      </section>
 
-      {/* Preview Section */}
-      <div className="settings-section">
-        <h3 className="subsection-header">Preview</h3>
-        <p className="section-description" style={{ marginBottom: "12px" }}>
-          Test your formatting settings with sample text.
+      <section className="feature-card feature-card--flat">
+        <h3 className="feature-section-title">
+          <Eye size={18} strokeWidth={2} /> Live preview
+        </h3>
+        <p className="feature-section-hint">
+          Test your formatting rules with sample text.
         </p>
 
         <div className="preview-container">
           <div className="preview-input">
             <label className="preview-label">Input</label>
             <textarea
-              className="preview-textarea"
+              className="feature-textarea preview-textarea"
               value={previewText}
               onChange={(e) => setPreviewText(e.target.value)}
-              rows={3}
-              placeholder="Type or paste text to preview formatting..."
+              rows={4}
+              placeholder="Type or paste text to preview formatting…"
             />
           </div>
 
-          <div className="preview-arrow">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M5 12h14M12 5l7 7-7 7" />
-            </svg>
+          <div className="preview-arrow" aria-hidden>
+            <ArrowRight size={22} strokeWidth={2} />
           </div>
 
           <div className="preview-output">
             <label className="preview-label">
-              Output
+              <span>Output</span>
               {previewResult.changes.length > 0 && (
-                <span className="changes-badge">
-                  {previewResult.changes.length} change{previewResult.changes.length !== 1 ? "s" : ""}
+                <span className="feature-chip accent">
+                  {previewResult.changes.length} change
+                  {previewResult.changes.length !== 1 ? "s" : ""}
                 </span>
               )}
             </label>
@@ -169,20 +240,13 @@ export default function FormattingView() {
           <div className="changes-list">
             <span className="changes-label">Applied:</span>
             {previewResult.changes.map((change, i) => (
-              <span key={i} className="change-tag">
+              <span key={i} className="feature-chip">
                 {change}
               </span>
             ))}
           </div>
         )}
-      </div>
-
-      {/* Reset Button */}
-      <div className="reset-section">
-        <button className="btn-ghost" onClick={resetToDefaults}>
-          Reset to Defaults
-        </button>
-      </div>
+      </section>
     </div>
   );
 }

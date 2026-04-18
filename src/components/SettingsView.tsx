@@ -16,6 +16,25 @@ import FormattingView from "./FormattingView";
 import AboutView from "./AboutView";
 import KeywordSuggestionBanner from "./KeywordSuggestionBanner";
 import MoreView from "./MoreView";
+import { fetchGeminiModels, GeminiModelInfo, UI_LANGUAGES, AiMode } from "../lib/ai";
+import { CategoryIcon } from "../assets/icons/CategoryIcon";
+import {
+  Settings as SettingsGlyph,
+  Cpu,
+  FileText,
+  LayoutGrid,
+  Layers,
+  Wand2,
+  BarChart3,
+  MessageSquareText,
+  BookMarked,
+  Command,
+  Download,
+  Palette,
+  Info,
+  ChevronLeft,
+  Mic,
+} from "lucide-react";
 import "../styles/settings.css";
 
 type ModelStatus = "not_downloaded" | "downloading" | "downloaded" | "loading" | "loaded" | "error";
@@ -97,6 +116,30 @@ export default function SettingsView() {
   const [runtimeIssue, setRuntimeIssue] = useState("");
   const [profileLabel, setProfileLabel] = useState("");
 
+  // Live Gemini catalog: fetched on demand via the backend proxy so we never
+  // ship hardcoded model IDs that might be retired by Google. null = not yet
+  // fetched; [] = fetched but API returned nothing (show hardcoded fallback).
+  const [geminiModels, setGeminiModels] = useState<GeminiModelInfo[] | null>(null);
+  const [geminiModelsError, setGeminiModelsError] = useState<string>("");
+  const [geminiModelsLoading, setGeminiModelsLoading] = useState(false);
+
+  const loadGeminiModels = useCallback(async (force = false) => {
+    if (!settings.geminiApiKey) {
+      setGeminiModelsError("Enter an API key first");
+      return;
+    }
+    setGeminiModelsLoading(true);
+    setGeminiModelsError("");
+    try {
+      const models = await fetchGeminiModels(settings.geminiApiKey, force);
+      setGeminiModels(models);
+    } catch (e) {
+      setGeminiModelsError(e instanceof Error ? e.message : "Failed to load models");
+    } finally {
+      setGeminiModelsLoading(false);
+    }
+  }, [settings.geminiApiKey]);
+
   // Sidebar state
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     const saved = localStorage.getItem("vtt-sidebar-collapsed");
@@ -154,175 +197,80 @@ export default function SettingsView() {
       id: "general",
       label: "System",
       primary: true,
-      icon: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="3" />
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
-        </svg>
-      ),
+      icon: <CategoryIcon icon={SettingsGlyph} color="graphite" />,
     },
     {
       id: "ai",
       label: "Engine",
       primary: true,
-      icon: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
-          <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-          <line x1="12" y1="19" x2="12" y2="22" />
-        </svg>
-      ),
+      icon: <CategoryIcon icon={Cpu} color="indigo" />,
     },
     {
       id: "history",
       label: "Transcript",
       primary: true,
-      icon: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-          <polyline points="14 2 14 8 20 8" />
-          <line x1="16" y1="13" x2="8" y2="13" />
-          <line x1="16" y1="17" x2="8" y2="17" />
-          <polyline points="10 9 9 9 8 9" />
-        </svg>
-      ),
+      icon: <CategoryIcon icon={FileText} color="green" />,
       badge: history.length,
     },
     {
       id: "more",
       label: "More",
       primary: true,
-      icon: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="3" y="3" width="7" height="7" />
-          <rect x="14" y="3" width="7" height="7" />
-          <rect x="3" y="14" width="7" height="7" />
-          <rect x="14" y="14" width="7" height="7" />
-        </svg>
-      ),
+      icon: <CategoryIcon icon={LayoutGrid} color="purple" />,
     },
     {
       id: "templates",
       label: "Templates",
       description: "Context prompts that guide AI refinement.",
-      icon: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-          <line x1="3" y1="9" x2="21" y2="9" />
-          <line x1="9" y1="21" x2="9" y2="9" />
-        </svg>
-      ),
+      icon: <CategoryIcon icon={Layers} color="blue" />,
     },
     {
       id: "formatting",
       label: "Formatting",
       description: "Text cleanup rules applied after transcription.",
-      icon: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-        </svg>
-      ),
+      icon: <CategoryIcon icon={Wand2} color="pink" />,
     },
     {
       id: "analytics",
       label: "Analytics",
       description: "Usage stats, language breakdown, activity charts.",
-      icon: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <line x1="18" y1="20" x2="18" y2="10" />
-          <line x1="12" y1="20" x2="12" y2="4" />
-          <line x1="6" y1="20" x2="6" y2="14" />
-        </svg>
-      ),
+      icon: <CategoryIcon icon={BarChart3} color="orange" />,
     },
     {
       id: "phrases",
       label: "Phrases",
       description: "Saved snippets you can paste by voice command.",
-      icon: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <line x1="8" y1="6" x2="21" y2="6" />
-          <line x1="8" y1="12" x2="21" y2="12" />
-          <line x1="8" y1="18" x2="21" y2="18" />
-          <line x1="3" y1="6" x2="3.01" y2="6" />
-          <line x1="3" y1="12" x2="3.01" y2="12" />
-          <line x1="3" y1="18" x2="3.01" y2="18" />
-        </svg>
-      ),
+      icon: <CategoryIcon icon={MessageSquareText} color="teal" />,
     },
     {
       id: "keywords",
       label: "Keywords",
       description: "Vocabulary corrections applied to every transcript.",
-      icon: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M4 9h16" />
-          <path d="M4 15h16" />
-          <path d="M10 3L8 21" />
-          <path d="M16 3l-2 18" />
-        </svg>
-      ),
+      icon: <CategoryIcon icon={BookMarked} color="brown" />,
     },
     {
       id: "shortcuts",
       label: "Shortcuts",
       description: "Global hotkey and command bindings.",
-      icon: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="2" y="4" width="20" height="16" rx="2" ry="2" />
-          <path d="M6 8h.001" />
-          <path d="M10 8h.001" />
-          <path d="M14 8h.001" />
-          <path d="M18 8h.001" />
-          <path d="M8 12h.001" />
-          <path d="M12 12h.001" />
-          <path d="M16 12h.001" />
-          <path d="M7 16h10" />
-        </svg>
-      ),
+      icon: <CategoryIcon icon={Command} color="cyan" />,
     },
     {
       id: "export",
       label: "Export",
       description: "Save transcripts to file in various formats.",
-      icon: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-          <polyline points="17 8 12 3 7 8" />
-          <line x1="12" y1="3" x2="12" y2="15" />
-        </svg>
-      ),
+      icon: <CategoryIcon icon={Download} color="yellow" />,
     },
     {
       id: "appearance",
       label: "Appearance",
       description: "Theme, overlay, font, and visual tweaks.",
-      icon: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="5" />
-          <line x1="12" y1="1" x2="12" y2="3" />
-          <line x1="12" y1="21" x2="12" y2="23" />
-          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-          <line x1="1" y1="12" x2="3" y2="12" />
-          <line x1="21" y1="12" x2="23" y2="12" />
-          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-        </svg>
-      ),
+      icon: <CategoryIcon icon={Palette} color="red" />,
     },
     {
       id: "about",
       label: "About",
       description: "Version info, credits, and licenses.",
-      icon: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="10" />
-          <line x1="12" y1="16" x2="12" y2="12" />
-          <line x1="12" y1="8" x2="12.01" y2="8" />
-        </svg>
-      ),
+      icon: <CategoryIcon icon={Info} color="graphite" />,
     },
   ];
 
@@ -447,8 +395,62 @@ export default function SettingsView() {
       <KeywordSuggestionBanner />
       <div className="settings-titlebar">
         <div className="titlebar-brand">
-          <div className="brand-mark" />
+          <span className="brand-mark" aria-hidden>
+            <Mic size={12} strokeWidth={2.5} />
+          </span>
           <span className="brand-name">VoiceToText</span>
+        </div>
+        <div className="titlebar-status" role="group" aria-label="Live status">
+          <button
+            type="button"
+            className={`status-chip mic ${settings.audioDevice ? "ok" : "warn"}`}
+            onClick={() => setActiveTab("general")}
+            title="Microphone"
+          >
+            <span className="chip-dot" />
+            <span className="chip-label">Mic</span>
+            <span className="chip-value">
+              {settings.audioDevice
+                ? String(settings.audioDevice).slice(0, 14)
+                : "Default"}
+            </span>
+          </button>
+          <button
+            type="button"
+            className={`status-chip model ${
+              modelStatus === "loaded"
+                ? "ok"
+                : modelStatus === "error"
+                ? "err"
+                : "warn"
+            }`}
+            onClick={() => setActiveTab("ai")}
+            title="Local transcription model"
+          >
+            <span className="chip-dot" />
+            <span className="chip-label">Model</span>
+            <span className="chip-value">
+              {modelStatus === "loaded"
+                ? `${settings.modelSize} · ${modelDevice.toUpperCase()}`
+                : statusBadge.label}
+            </span>
+          </button>
+          <button
+            type="button"
+            className={`status-chip ai ${
+              settings.useGemini && settings.geminiApiKey ? "ok" : "off"
+            }`}
+            onClick={() => setActiveTab("ai")}
+            title="Cloud refinement"
+          >
+            <span className="chip-dot" />
+            <span className="chip-label">AI</span>
+            <span className="chip-value">
+              {settings.useGemini && settings.geminiApiKey
+                ? String(settings.geminiModel || "Gemini").replace(/^gemini-/, "")
+                : "Off"}
+            </span>
+          </button>
         </div>
         <WindowControls />
       </div>
@@ -464,19 +466,11 @@ export default function SettingsView() {
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
             title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+            <ChevronLeft
+              size={16}
+              strokeWidth={2}
               style={{ transform: sidebarCollapsed ? "rotate(180deg)" : "none" }}
-            >
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
+            />
           </button>
 
           <div className="nav-items">
@@ -520,18 +514,7 @@ export default function SettingsView() {
                 className="breadcrumb-link"
                 onClick={() => setActiveTab("more")}
               >
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <polyline points="15 18 9 12 15 6" />
-                </svg>
+                <ChevronLeft size={14} strokeWidth={2} />
                 More
               </button>
               <span className="breadcrumb-sep">/</span>
@@ -590,8 +573,30 @@ export default function SettingsView() {
                     <span className="field-hint">Insert text into active window</span>
                   </div>
                   <div
+                    role="switch"
+                    aria-checked={!!settings.autoPaste}
+                    aria-label="Auto-paste"
                     className={`toggle-switch ${settings.autoPaste ? "active" : ""}`}
                     onClick={() => updateSetting("autoPaste", !settings.autoPaste)}
+                  />
+                </div>
+
+                <div className="field-row">
+                  <div className="field-info">
+                    <span className="field-label">Copy to clipboard</span>
+                    <span className="field-hint">
+                      Keep transcript on clipboard. Off preserves what you had
+                      copied before recording.
+                    </span>
+                  </div>
+                  <div
+                    role="switch"
+                    aria-checked={!!settings.copyToClipboard}
+                    aria-label="Copy to clipboard"
+                    className={`toggle-switch ${settings.copyToClipboard ? "active" : ""}`}
+                    onClick={() =>
+                      updateSetting("copyToClipboard", !settings.copyToClipboard)
+                    }
                   />
                 </div>
               </section>
@@ -758,40 +763,99 @@ export default function SettingsView() {
                 <div className="field-row" style={{ opacity: settings.useGemini ? 1 : 0.4, pointerEvents: settings.useGemini ? 'auto' : 'none' }}>
                   <div className="field-info">
                     <span className="field-label">Gemini Model</span>
-                    <span className="field-hint">AI model for refinement</span>
+                    <span className="field-hint">
+                      {geminiModels === null
+                        ? "Click 'Load models' to fetch the live list from Google"
+                        : `${geminiModels.length} available`}
+                    </span>
+                  </div>
+                  <div className="status-actions">
+                    <select
+                      className="form-select"
+                      value={settings.geminiModel}
+                      onChange={(e) => updateSetting("geminiModel", e.target.value)}
+                    >
+                      {geminiModels && geminiModels.length > 0 ? (
+                        geminiModels.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.displayName} ({m.id})
+                          </option>
+                        ))
+                      ) : (
+                        <>
+                          <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                          <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+                          <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash Lite</option>
+                          <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                        </>
+                      )}
+                    </select>
+                    <button
+                      className="btn"
+                      onClick={() => loadGeminiModels(true)}
+                      disabled={geminiModelsLoading || !settings.geminiApiKey}
+                      title="Re-query Google for the latest model list"
+                    >
+                      {geminiModelsLoading ? "Loading…" : "Load models"}
+                    </button>
+                  </div>
+                </div>
+
+                {geminiModelsError && (
+                  <div className="error-message">{geminiModelsError}</div>
+                )}
+              </section>
+
+              <section
+                className="settings-section"
+                style={{ opacity: settings.useGemini ? 1 : 0.4, pointerEvents: settings.useGemini ? "auto" : "none" }}
+              >
+                <h2 className="section-header">Pipeline</h2>
+                <p className="section-description">
+                  Two-step analyze-and-adjust flow. The first pass pulls out entities and intent in the
+                  source language; the second rewrites the transcript in the target language using those
+                  facts as anchors so names and numbers stay stable.
+                </p>
+
+                <div className="field-row">
+                  <div className="field-info">
+                    <span className="field-label">Mode</span>
+                    <span className="field-hint">How to transform the transcript</span>
                   </div>
                   <select
                     className="form-select"
-                    value={settings.geminiModel}
-                    onChange={(e) => updateSetting("geminiModel", e.target.value)}
+                    value={settings.aiMode}
+                    onChange={(e) => updateSetting("aiMode", e.target.value as AiMode)}
                   >
-                    <optgroup label="Latest (Recommended)">
-                      <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-                      <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
-                      <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash Lite</option>
-                    </optgroup>
-                    <optgroup label="Preview Models">
-                      <option value="gemini-3.1-flash-lite-preview">Gemini 3.1 Flash Lite (Preview)</option>
-                      <option value="gemini-3-pro-preview">Gemini 3 Pro (Preview)</option>
-                      <option value="gemini-3-flash-preview">Gemini 3 Flash (Preview)</option>
-                    </optgroup>
+                    <option value="off">Off (single-shot polish)</option>
+                    <option value="refine">Refine (clean up, same language)</option>
+                    <option value="translate">Translate to target language</option>
+                    <option value="summarize-translate">Summarize + Translate</option>
+                  </select>
+                </div>
+
+                <div className="field-row">
+                  <div className="field-info">
+                    <span className="field-label">Output Language</span>
+                    <span className="field-hint">Target language for refined text</span>
+                  </div>
+                  <select
+                    className="form-select"
+                    value={settings.uiLanguage}
+                    onChange={(e) => updateSetting("uiLanguage", e.target.value)}
+                  >
+                    {UI_LANGUAGES.map((l) => (
+                      <option key={l.code} value={l.code}>{l.label}</option>
+                    ))}
                   </select>
                 </div>
               </section>
             </div>
           )}
 
-          {activeTab === "templates" && (
-            <div className="settings-panel">
-              <TemplatesView />
-            </div>
-          )}
+          {activeTab === "templates" && <TemplatesView />}
 
-          {activeTab === "formatting" && (
-            <div className="settings-panel">
-              <FormattingView />
-            </div>
-          )}
+          {activeTab === "formatting" && <FormattingView />}
 
           {activeTab === "history" && (
             <div className="settings-panel" style={{ maxWidth: "100%" }}>
@@ -802,47 +866,19 @@ export default function SettingsView() {
             </div>
           )}
 
-          {activeTab === "analytics" && (
-            <div className="settings-panel" style={{ maxWidth: "100%" }}>
-              <AnalyticsView entries={history} />
-            </div>
-          )}
+          {activeTab === "analytics" && <AnalyticsView entries={history} />}
 
-          {activeTab === "phrases" && (
-            <div className="settings-panel" style={{ maxWidth: "100%" }}>
-              <PhrasesView />
-            </div>
-          )}
+          {activeTab === "phrases" && <PhrasesView />}
 
-          {activeTab === "keywords" && (
-            <div className="settings-panel" style={{ maxWidth: "100%" }}>
-              <KeywordsView />
-            </div>
-          )}
+          {activeTab === "keywords" && <KeywordsView />}
 
-          {activeTab === "shortcuts" && (
-            <div className="settings-panel">
-              <ShortcutsView />
-            </div>
-          )}
+          {activeTab === "shortcuts" && <ShortcutsView />}
 
-          {activeTab === "export" && (
-            <div className="settings-panel">
-              <ExportView entries={history} />
-            </div>
-          )}
+          {activeTab === "export" && <ExportView entries={history} />}
 
-          {activeTab === "appearance" && (
-            <div className="settings-panel">
-              <AppearanceView />
-            </div>
-          )}
+          {activeTab === "appearance" && <AppearanceView />}
 
-          {activeTab === "about" && (
-            <div className="settings-panel">
-              <AboutView />
-            </div>
-          )}
+          {activeTab === "about" && <AboutView />}
         </main>
       </div>
     </div>

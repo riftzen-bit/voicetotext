@@ -20,13 +20,17 @@ let pythonBridge: PythonBridge | null = null;
 let windowTracker: WindowTracker | null = null;
 
 function createOverlayWindow(): BrowserWindow {
-  const { width: screenW } = screen.getPrimaryDisplay().workAreaSize;
+  const display = screen.getPrimaryDisplay();
+  const { x: boundsX, y: boundsY, width: boundsW } = display.bounds;
+  const workAreaTop = display.workArea.y;
+  const overlayW = 180;
+  const overlayH = 40;
 
   const win = new BrowserWindow({
-    width: 320,
-    height: 72,
-    x: screenW - 340,
-    y: 20,
+    width: overlayW,
+    height: overlayH,
+    x: boundsX + Math.round((boundsW - overlayW) / 2),
+    y: Math.max(boundsY, workAreaTop) + 10,
     frame: false,
     transparent: true,
     alwaysOnTop: true,

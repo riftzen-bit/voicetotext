@@ -179,3 +179,74 @@ export async function refineTextWithGemini(
     return text;
   }
 }
+
+/**
+ * Agent-mode call: the template BECOMES the full system prompt. The transcript
+ * is the user's request; the AI acts as the persona. This is the "vibe coding"
+ * flow — no similarity / length guard rails, because the agent is expected to
+ * rewrite substantially.
+ *
+ * Returns the assistant response or the original text on failure.
+ */
+export async function generateWithGemini(
+  transcript: string,
+  apiKey: string,
+  modelId: string,
+  systemPrompt: string,
+): Promise<string> {
+  if (!apiKey || !transcript || transcript.trim().length === 0) return transcript;
+  if (!systemPrompt || systemPrompt.trim().length === 0) return transcript;
+
+  // Agent answers can be much longer than input — allow a generous ceiling.
+  const estInputTokens = Math.ceil(transcript.length / 3);
+  const maxOutputTokens = Math.min(8192, Math.max(1024, estInputTokens * 4));
+  const timeoutMs = Math.min(90_000, Math.max(15_000, Math.ceil(transcript.length / 40) * 1000));
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
+        body: JSON.stringify({
+          systemInstruction: {
+            parts: [{ text: systemPrompt }],
+          },
+          contents: [
+            { role: "user", parts: [{ text: transcript }] },
+          ],
+          generationConfig: {
+            temperature: 0.3,
+            maxOutputTokens,
+            topP: 0.95,
+          },
+        }),
+      },
+    );
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      console.warn("Gemini agent call error:", response.status, response.statusText);
+      return transcript;
+    }
+
+    const data = await response.json();
+    const reply = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    if (!reply || reply.length === 0) return transcript;
+
+    return reply;
+  } catch (err: unknown) {
+    clearTimeout(timeoutId);
+    if (err instanceof Error && err.name === "AbortError") {
+      console.warn("Gemini agent call timed out, using original transcript");
+    } else {
+      console.error("Gemini agent call failed:", err);
+    }
+    return transcript;
+  }
+}

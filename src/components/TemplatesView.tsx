@@ -1,295 +1,478 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  AlertTriangle,
+  ChevronDown,
+  ChevronRight,
+  ChevronUp,
+  Pencil,
+  Plus,
+  RotateCcw,
+  Trash2,
+} from "lucide-react";
 import { useSettings } from "../hooks/useSettings";
+import {
+  ContextTemplate,
+  DEFAULT_TEMPLATES,
+  TemplateMode,
+} from "../lib/default-templates";
 import "../styles/templates.css";
 
-export interface ContextTemplate {
-  id: string;
+export type { ContextTemplate };
+
+interface EditForm {
   name: string;
+  description: string;
+  mode: TemplateMode;
   prompt: string;
-  order: number;
 }
 
-const DEFAULT_TEMPLATES: ContextTemplate[] = [
-  {
-    id: "professional",
-    name: "Professional",
-    prompt: "Format as professional business communication. Use formal language and proper grammar.",
-    order: 0,
-  },
-  {
-    id: "casual",
-    name: "Casual Chat",
-    prompt: "Keep the conversational and casual tone. Allow informal expressions.",
-    order: 1,
-  },
-  {
-    id: "technical",
-    name: "Technical Writing",
-    prompt: "Preserve technical terms, variable names, and code references exactly. Do not 'correct' technical jargon.",
-    order: 2,
-  },
-  {
-    id: "vietnamese",
-    name: "Vietnamese",
-    prompt: "Text is in Vietnamese. Preserve Vietnamese diacritics and grammar. Do not translate or romanize.",
-    order: 3,
-  },
-];
+const EMPTY_FORM: EditForm = {
+  name: "",
+  description: "",
+  mode: "polish",
+  prompt: "",
+};
 
 export default function TemplatesView() {
   const { settings, updateSetting } = useSettings();
   const [templates, setTemplates] = useState<ContextTemplate[]>([]);
-  const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState({ name: "", prompt: "" });
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [newTemplate, setNewTemplate] = useState({ name: "", prompt: "" });
+  const [editForm, setEditForm] = useState<EditForm>(EMPTY_FORM);
+  const [creating, setCreating] = useState(false);
+  const [newForm, setNewForm] = useState<EditForm>(EMPTY_FORM);
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<"all" | TemplateMode>("all");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  // Load templates from settings
   useEffect(() => {
     const saved = settings.contextTemplates as ContextTemplate[] | undefined;
     if (saved && saved.length > 0) {
       setTemplates(saved);
     } else {
-      // Initialize with defaults
       setTemplates(DEFAULT_TEMPLATES);
       updateSetting("contextTemplates", DEFAULT_TEMPLATES);
     }
-    setActiveTemplateId(settings.activeTemplateId as string | null);
+    setActiveId((settings.activeTemplateId as string | null) ?? null);
   }, [settings.contextTemplates, settings.activeTemplateId]);
 
-  const saveTemplates = async (newTemplates: ContextTemplate[]) => {
-    setTemplates(newTemplates);
-    await updateSetting("contextTemplates", newTemplates);
+  const saveTemplates = async (next: ContextTemplate[]) => {
+    setTemplates(next);
+    await updateSetting("contextTemplates", next);
   };
 
-  const handleActivate = async (id: string) => {
-    const newActiveId = activeTemplateId === id ? null : id;
-    setActiveTemplateId(newActiveId);
-    await updateSetting("activeTemplateId", newActiveId);
+  const toggleActive = async (id: string) => {
+    const next = activeId === id ? null : id;
+    setActiveId(next);
+    await updateSetting("activeTemplateId", next);
   };
 
-  const handleEdit = (template: ContextTemplate) => {
-    setEditingId(template.id);
-    setEditForm({ name: template.name, prompt: template.prompt });
+  const beginEdit = (t: ContextTemplate) => {
+    setEditingId(t.id);
+    setEditForm({
+      name: t.name,
+      description: t.description ?? "",
+      mode: t.mode ?? "polish",
+      prompt: t.prompt,
+    });
   };
 
-  const handleSaveEdit = async () => {
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditForm(EMPTY_FORM);
+  };
+
+  const saveEdit = async () => {
     if (!editingId) return;
-    const updated = templates.map((t) =>
-      t.id === editingId ? { ...t, name: editForm.name, prompt: editForm.prompt } : t
+    if (!editForm.name.trim() || !editForm.prompt.trim()) return;
+    const next = templates.map((t) =>
+      t.id === editingId
+        ? {
+            ...t,
+            name: editForm.name.trim(),
+            description: editForm.description.trim() || undefined,
+            mode: editForm.mode,
+            prompt: editForm.prompt.trim(),
+          }
+        : t,
     );
-    await saveTemplates(updated);
-    setEditingId(null);
+    await saveTemplates(next);
+    cancelEdit();
   };
 
-  const handleCancelEdit = () => {
-    setEditingId(null);
-    setEditForm({ name: "", prompt: "" });
+  const createNew = async () => {
+    if (!newForm.name.trim() || !newForm.prompt.trim()) return;
+    const t: ContextTemplate = {
+      id: `custom-${Date.now()}`,
+      name: newForm.name.trim(),
+      description: newForm.description.trim() || undefined,
+      mode: newForm.mode,
+      prompt: newForm.prompt.trim(),
+      order: templates.length,
+    };
+    await saveTemplates([...templates, t]);
+    setCreating(false);
+    setNewForm(EMPTY_FORM);
   };
 
-  const handleDelete = async (id: string) => {
-    const updated = templates.filter((t) => t.id !== id);
-    await saveTemplates(updated);
-    if (activeTemplateId === id) {
-      setActiveTemplateId(null);
+  const remove = async (id: string) => {
+    await saveTemplates(templates.filter((t) => t.id !== id));
+    if (activeId === id) {
+      setActiveId(null);
       await updateSetting("activeTemplateId", null);
     }
   };
 
-  const handleAddTemplate = async () => {
-    if (!newTemplate.name.trim() || !newTemplate.prompt.trim()) return;
-
-    const newId = `custom-${Date.now()}`;
-    const template: ContextTemplate = {
-      id: newId,
-      name: newTemplate.name.trim(),
-      prompt: newTemplate.prompt.trim(),
-      order: templates.length,
-    };
-
-    await saveTemplates([...templates, template]);
-    setNewTemplate({ name: "", prompt: "" });
-    setShowAddForm(false);
+  const resetDefaults = async () => {
+    // Stale saved templates (pre-redesign) have the old coder as polish mode
+    // and include personas we dropped. Reset replaces the saved array with
+    // the current DEFAULT_TEMPLATES and clears any active selection that
+    // would point at a removed id.
+    const ok = typeof window !== "undefined" && window.confirm
+      ? window.confirm(
+          "Reset templates to defaults?\n\nThis replaces all templates with the current defaults. Custom templates will be lost.",
+        )
+      : true;
+    if (!ok) return;
+    await saveTemplates(DEFAULT_TEMPLATES);
+    const stillExists = DEFAULT_TEMPLATES.some((t) => t.id === activeId);
+    if (activeId && !stillExists) {
+      setActiveId(null);
+      await updateSetting("activeTemplateId", null);
+    }
   };
 
-  const handleMoveUp = async (index: number) => {
-    if (index === 0) return;
-    const updated = [...templates];
-    [updated[index - 1], updated[index]] = [updated[index], updated[index - 1]];
-    updated.forEach((t, i) => (t.order = i));
-    await saveTemplates(updated);
+  const move = async (id: string, direction: -1 | 1) => {
+    const sorted = [...templates].sort((a, b) => a.order - b.order);
+    const i = sorted.findIndex((t) => t.id === id);
+    const j = i + direction;
+    if (i < 0 || j < 0 || j >= sorted.length) return;
+    [sorted[i], sorted[j]] = [sorted[j], sorted[i]];
+    sorted.forEach((t, k) => (t.order = k));
+    await saveTemplates(sorted);
   };
 
-  const handleMoveDown = async (index: number) => {
-    if (index === templates.length - 1) return;
-    const updated = [...templates];
-    [updated[index], updated[index + 1]] = [updated[index + 1], updated[index]];
-    updated.forEach((t, i) => (t.order = i));
-    await saveTemplates(updated);
-  };
+  const visible = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return [...templates]
+      .sort((a, b) => a.order - b.order)
+      .filter((t) => {
+        const mode = t.mode ?? "polish";
+        if (filter !== "all" && mode !== filter) return false;
+        if (!q) return true;
+        return (
+          t.name.toLowerCase().includes(q) ||
+          t.prompt.toLowerCase().includes(q) ||
+          (t.description ?? "").toLowerCase().includes(q)
+        );
+      });
+  }, [templates, search, filter]);
 
-  const activeTemplate = templates.find((t) => t.id === activeTemplateId);
+  const activeTemplate = templates.find((t) => t.id === activeId);
+
+  const renderEditor = (
+    form: EditForm,
+    setForm: (f: EditForm) => void,
+    onCancel: () => void,
+    onSave: () => void,
+    saveLabel: string,
+  ) => (
+    <div className="tpl-editor">
+      <div className="tpl-editor-row">
+        <label className="tpl-field">
+          <span className="tpl-field-label">Name</span>
+          <input
+            className="tpl-input"
+            type="text"
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            placeholder="Senior iOS Engineer"
+          />
+        </label>
+        <label className="tpl-field">
+          <span className="tpl-field-label">Description</span>
+          <input
+            className="tpl-input"
+            type="text"
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+            placeholder="One line shown on the card"
+          />
+        </label>
+      </div>
+
+      <div className="tpl-field">
+        <span className="tpl-field-label">Mode</span>
+        <div className="tpl-mode-pick" role="radiogroup">
+          <button
+            type="button"
+            role="radio"
+            aria-checked={form.mode === "polish"}
+            className="tpl-mode-opt"
+            data-active={form.mode === "polish"}
+            onClick={() => setForm({ ...form, mode: "polish" })}
+          >
+            <span className="tpl-mode-name">Polish</span>
+            <span className="tpl-mode-hint">
+              Keep the speaker's words. Fix transcription; apply style hint.
+            </span>
+          </button>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={form.mode === "agent"}
+            className="tpl-mode-opt"
+            data-active={form.mode === "agent"}
+            onClick={() => setForm({ ...form, mode: "agent" })}
+          >
+            <span className="tpl-mode-name">Agent</span>
+            <span className="tpl-mode-hint">
+              AI acts as the persona. Dictation is the user's request.
+            </span>
+          </button>
+        </div>
+      </div>
+
+      <label className="tpl-field">
+        <span className="tpl-field-label">
+          {form.mode === "agent" ? "System prompt" : "Style note"}
+        </span>
+        <textarea
+          className="tpl-textarea"
+          value={form.prompt}
+          onChange={(e) => setForm({ ...form, prompt: e.target.value })}
+          rows={form.mode === "agent" ? 8 : 4}
+          placeholder={
+            form.mode === "agent"
+              ? "You are a senior software engineer.\nThe user dictated their request. Read their intent and answer."
+              : "Keep a conversational tone. Preserve technical jargon."
+          }
+        />
+      </label>
+
+      <div className="tpl-editor-actions">
+        <button className="tpl-btn" onClick={onCancel}>
+          Cancel
+        </button>
+        <button
+          className="tpl-btn primary"
+          onClick={onSave}
+          disabled={!form.name.trim() || !form.prompt.trim()}
+        >
+          {saveLabel}
+        </button>
+      </div>
+    </div>
+  );
 
   return (
     <div className="templates-view">
-      <h2 className="section-header">Context Templates</h2>
-      <p className="section-description">
-        Templates provide context to improve AI text refinement. Activate one to apply it to all transcriptions.
-      </p>
-
-      {/* Active Template Display */}
-      {activeTemplate && (
-        <div className="active-template-banner">
-          <div className="active-template-info">
-            <span className="active-label">Active:</span>
-            <span className="active-name">{activeTemplate.name}</span>
-          </div>
+      <header className="tpl-header">
+        <div className="tpl-header-text">
+          <h1 className="tpl-title">Templates</h1>
+          <p className="tpl-subtitle">
+            Pick a voice. The active template shapes what Gemini does with your
+            next dictation.
+          </p>
+        </div>
+        <div className="tpl-header-actions">
           <button
-            className="btn-ghost"
-            onClick={() => handleActivate(activeTemplate.id)}
+            className="tpl-btn"
+            onClick={resetDefaults}
+            title="Replace all templates with built-in defaults"
           >
-            Deactivate
+            <RotateCcw size={15} strokeWidth={2.25} />
+            Reset
+          </button>
+          <button
+            className="tpl-btn primary"
+            onClick={() => {
+              setNewForm(EMPTY_FORM);
+              setCreating(true);
+            }}
+          >
+            <Plus size={16} strokeWidth={2.25} />
+            New
+          </button>
+        </div>
+      </header>
+
+      {activeTemplate && (
+        <div className="tpl-active">
+          <span className="tpl-active-dot" aria-hidden />
+          <span className="tpl-active-text">
+            Active: <strong>{activeTemplate.name}</strong>
+          </span>
+          <span className="tpl-mode-tag" data-mode={activeTemplate.mode ?? "polish"}>
+            {activeTemplate.mode === "agent" ? "Agent" : "Polish"}
+          </span>
+          <button
+            className="tpl-active-clear"
+            onClick={() => toggleActive(activeTemplate.id)}
+          >
+            Clear
           </button>
         </div>
       )}
 
-      {/* Templates List */}
-      <div className="templates-list">
-        {[...templates]
-          .sort((a, b) => a.order - b.order)
-          .map((template, index) => (
-            <div
-              key={template.id}
-              className={`template-card ${activeTemplateId === template.id ? "active" : ""}`}
+      {activeTemplate && !settings.geminiApiKey && (
+        <div className="tpl-warn" role="alert">
+          <AlertTriangle size={16} strokeWidth={2} aria-hidden />
+          <span className="tpl-warn-text">
+            No Gemini API key. <strong>{activeTemplate.name}</strong> won't run
+            until you add one in Settings.
+          </span>
+        </div>
+      )}
+
+      <div className="tpl-toolbar">
+        <input
+          className="tpl-search"
+          type="text"
+          placeholder="Search templates"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <div className="tpl-filter" role="tablist">
+          {(
+            [
+              { id: "all", label: "All" },
+              { id: "polish", label: "Polish" },
+              { id: "agent", label: "Agent" },
+            ] as const
+          ).map((opt) => (
+            <button
+              key={opt.id}
+              role="tab"
+              aria-selected={filter === opt.id}
+              className="tpl-filter-chip"
+              data-active={filter === opt.id}
+              onClick={() => setFilter(opt.id)}
             >
-              {editingId === template.id ? (
-                <div className="template-edit-form">
-                  <input
-                    type="text"
-                    className="form-input"
-                    value={editForm.name}
-                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                    placeholder="Template name"
-                  />
-                  <textarea
-                    className="form-textarea"
-                    value={editForm.prompt}
-                    onChange={(e) => setEditForm({ ...editForm, prompt: e.target.value })}
-                    placeholder="Context prompt for AI..."
-                    rows={3}
-                  />
-                  <div className="edit-actions">
-                    <button className="btn-primary btn-sm" onClick={handleSaveEdit}>
-                      Save
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {creating && (
+        <div className="tpl-card tpl-card--edit">
+          <h3 className="tpl-card-edit-title">New template</h3>
+          {renderEditor(
+            newForm,
+            setNewForm,
+            () => {
+              setCreating(false);
+              setNewForm(EMPTY_FORM);
+            },
+            createNew,
+            "Create",
+          )}
+        </div>
+      )}
+
+      {visible.length === 0 ? (
+        <div className="tpl-empty">
+          <p>No templates match. Clear the search or switch filter.</p>
+        </div>
+      ) : (
+        <ul className="tpl-list">
+          {visible.map((t) => {
+            const mode: TemplateMode = t.mode ?? "polish";
+            const isActive = activeId === t.id;
+            const isEditing = editingId === t.id;
+            const isExpanded = expandedId === t.id;
+
+            if (isEditing) {
+              return (
+                <li key={t.id} className="tpl-card tpl-card--edit">
+                  <h3 className="tpl-card-edit-title">Edit template</h3>
+                  {renderEditor(editForm, setEditForm, cancelEdit, saveEdit, "Save")}
+                </li>
+              );
+            }
+
+            return (
+              <li
+                key={t.id}
+                className="tpl-card"
+                data-active={isActive}
+              >
+                <div className="tpl-card-head">
+                  <div className="tpl-card-id">
+                    <h3 className="tpl-card-name">{t.name}</h3>
+                    <span className="tpl-mode-tag" data-mode={mode}>
+                      {mode === "agent" ? "Agent" : "Polish"}
+                    </span>
+                    {isActive && <span className="tpl-active-tag">Active</span>}
+                  </div>
+                  <div className="tpl-card-actions">
+                    <button
+                      className="tpl-btn"
+                      data-primary={!isActive}
+                      onClick={() => toggleActive(t.id)}
+                    >
+                      {isActive ? "Deactivate" : "Use"}
                     </button>
-                    <button className="btn-ghost btn-sm" onClick={handleCancelEdit}>
-                      Cancel
+                    <button
+                      className="tpl-icon-btn"
+                      title="Move up"
+                      aria-label="Move up"
+                      onClick={() => move(t.id, -1)}
+                    >
+                      <ChevronUp size={18} strokeWidth={2} />
+                    </button>
+                    <button
+                      className="tpl-icon-btn"
+                      title="Move down"
+                      aria-label="Move down"
+                      onClick={() => move(t.id, 1)}
+                    >
+                      <ChevronDown size={18} strokeWidth={2} />
+                    </button>
+                    <button
+                      className="tpl-icon-btn"
+                      title="Edit"
+                      aria-label="Edit"
+                      onClick={() => beginEdit(t)}
+                    >
+                      <Pencil size={16} strokeWidth={2} />
+                    </button>
+                    <button
+                      className="tpl-icon-btn danger"
+                      title="Delete"
+                      aria-label="Delete"
+                      onClick={() => remove(t.id)}
+                    >
+                      <Trash2 size={16} strokeWidth={2} />
                     </button>
                   </div>
                 </div>
-              ) : (
-                <>
-                  <div className="template-header">
-                    <div className="template-info">
-                      <span className="template-name">{template.name}</span>
-                      {activeTemplateId === template.id && (
-                        <span className="active-badge">Active</span>
-                      )}
-                    </div>
-                    <div className="template-actions">
-                      <button
-                        className="btn-icon"
-                        onClick={() => handleMoveUp(index)}
-                        disabled={index === 0}
-                        title="Move up"
-                      >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M18 15l-6-6-6 6" />
-                        </svg>
-                      </button>
-                      <button
-                        className="btn-icon"
-                        onClick={() => handleMoveDown(index)}
-                        disabled={index === templates.length - 1}
-                        title="Move down"
-                      >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M6 9l6 6 6-6" />
-                        </svg>
-                      </button>
-                      <button
-                        className="btn-icon"
-                        onClick={() => handleEdit(template)}
-                        title="Edit"
-                      >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                        </svg>
-                      </button>
-                      <button
-                        className="btn-icon btn-danger"
-                        onClick={() => handleDelete(template.id)}
-                        title="Delete"
-                      >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-                  <p className="template-prompt">{template.prompt}</p>
-                  <button
-                    className={`btn-activate ${activeTemplateId === template.id ? "active" : ""}`}
-                    onClick={() => handleActivate(template.id)}
-                  >
-                    {activeTemplateId === template.id ? "Deactivate" : "Activate"}
-                  </button>
-                </>
-              )}
-            </div>
-          ))}
-      </div>
 
-      {/* Add New Template */}
-      {showAddForm ? (
-        <div className="add-template-form">
-          <h4>New Template</h4>
-          <input
-            type="text"
-            className="form-input"
-            value={newTemplate.name}
-            onChange={(e) => setNewTemplate({ ...newTemplate, name: e.target.value })}
-            placeholder="Template name"
-          />
-          <textarea
-            className="form-textarea"
-            value={newTemplate.prompt}
-            onChange={(e) => setNewTemplate({ ...newTemplate, prompt: e.target.value })}
-            placeholder="Context prompt for AI refinement..."
-            rows={3}
-          />
-          <div className="add-actions">
-            <button
-              className="btn-primary"
-              onClick={handleAddTemplate}
-              disabled={!newTemplate.name.trim() || !newTemplate.prompt.trim()}
-            >
-              Add Template
-            </button>
-            <button className="btn-ghost" onClick={() => setShowAddForm(false)}>
-              Cancel
-            </button>
-          </div>
-        </div>
-      ) : (
-        <button className="btn-add-template" onClick={() => setShowAddForm(true)}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M12 5v14M5 12h14" />
-          </svg>
-          Add Custom Template
-        </button>
+                {t.description && (
+                  <p className="tpl-card-desc">{t.description}</p>
+                )}
+
+                <button
+                  className="tpl-prompt-toggle"
+                  onClick={() => setExpandedId(isExpanded ? null : t.id)}
+                  aria-expanded={isExpanded}
+                >
+                  {isExpanded ? (
+                    <ChevronDown size={14} strokeWidth={2} />
+                  ) : (
+                    <ChevronRight size={14} strokeWidth={2} />
+                  )}
+                  {isExpanded ? "Hide prompt" : "Show prompt"}
+                </button>
+
+                {isExpanded && (
+                  <pre className="tpl-prompt">{t.prompt}</pre>
+                )}
+              </li>
+            );
+          })}
+        </ul>
       )}
     </div>
   );

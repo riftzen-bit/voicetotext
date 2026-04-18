@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { BarChart3, Sparkles, Flame } from "lucide-react";
 import type { TranscriptionEntry, TranscriptionCategory } from "../hooks/useTranscription";
 
 const CATEGORY_LABELS: Record<TranscriptionCategory, { label: string; color: string; icon: string }> = {
@@ -333,20 +334,47 @@ export default function AnalyticsView({ entries }: AnalyticsViewProps) {
   const canGoPrev = selectedWeekOffset > -11; // Limit to 12 weeks back
   const canGoNext = selectedWeekOffset < 0;
 
+  const totalWords = useMemo(
+    () => entries.reduce((sum, e) => sum + countWords(e.text), 0),
+    [entries],
+  );
+
   return (
-    <div className="analytics-view">
-      <h2 className="section-header">Analytics</h2>
+    <div className="analytics-view feature-view feature-view--wide">
+      <header className="feature-hero">
+        <span className="feature-medallion tone-green" aria-hidden>
+          <BarChart3 />
+        </span>
+        <div className="feature-hero-body">
+          <span className="feature-hero-eyebrow">
+            <Sparkles size={12} strokeWidth={2.5} /> Insights
+          </span>
+          <h1 className="feature-hero-title">Analytics</h1>
+          <p className="feature-hero-description">
+            See how you use voice dictation — streaks, word counts, busy days,
+            language mix, and time saved compared with typing by hand.
+          </p>
+          <div className="feature-hero-meta">
+            <span className="feature-chip accent">
+              {entries.length} {entries.length === 1 ? "entry" : "entries"}
+            </span>
+            <span className="feature-chip">{totalWords.toLocaleString()} words</span>
+            <span className="feature-chip">
+              <Flame size={12} strokeWidth={2.5} /> {currentStreak} day streak
+            </span>
+          </div>
+        </div>
+      </header>
 
       {entries.length === 0 ? (
-        <div className="analytics-empty">
-          <div className="empty-icon">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" />
-              <path d="M3 5v14a2 2 0 0 0 2 2h16v-5" />
-              <path d="M18 12a2 2 0 0 0 0 4h4v-4Z" />
-            </svg>
+        <div className="feature-empty">
+          <div className="feature-empty-icon">
+            <BarChart3 />
           </div>
-          <p>No data yet. Start transcribing to see your statistics.</p>
+          <p className="feature-empty-title">No data yet</p>
+          <p className="feature-empty-description">
+            Start transcribing to unlock streaks, badges, and insights.
+          </p>
         </div>
       ) : (
         <>
