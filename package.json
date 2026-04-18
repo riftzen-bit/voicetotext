@@ -1,6 +1,6 @@
 {
   "name": "voicetotext",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Local voice-to-text with Whisper V3 – push-to-talk, auto-paste",
   "main": "dist-electron/main.js",
   "scripts": {

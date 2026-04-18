@@ -226,10 +226,44 @@ async def refine_stream(
         yield {"event": "error", "data": {"message": str(e)}}
 
 
+# Substrings that mark a model as incompatible with the text-refinement
+# pipeline. Live probe against the ListModels response on 2026-04-18 showed
+# these families either (a) reject `systemInstruction` / `responseMimeType`,
+# (b) require a non-text output modality, or (c) live on a separate API
+# surface (Interactions / audio / image). Filtering them out of the dropdown
+# keeps users from picking something that will always 400.
+#
+# Rules:
+#   - any id containing one of _INCOMPATIBLE_FRAGMENTS is dropped
+#   - any id starting with one of _INCOMPATIBLE_PREFIXES is dropped
+_INCOMPATIBLE_FRAGMENTS: tuple[str, ...] = (
+    "-tts",             # audio-only output
+    "-image",           # image generation
+    "lyria-",           # music generation
+    "nano-banana",      # image generation (alias)
+    "deep-research",    # Interactions API only
+    "computer-use",     # tool-use specialty, not plain text
+)
+_INCOMPATIBLE_PREFIXES: tuple[str, ...] = (
+    "gemma-3",          # Gemma 3 rejects systemInstruction on Gemini API
+                        # ("Developer instruction is not enabled"). Gemma 4
+                        # does accept it, so it stays.
+)
+
+
+def _is_compatible_model(model_id: str) -> bool:
+    if any(p in model_id for p in _INCOMPATIBLE_FRAGMENTS):
+        return False
+    if any(model_id.startswith(p) for p in _INCOMPATIBLE_PREFIXES):
+        return False
+    return True
+
+
 async def list_models(api_key: str, force: bool = False) -> list[dict[str, Any]]:
     """
-    Return generateContent-capable Gemini models for the given key.
-    Cached 24 h per-key so the settings panel can re-query freely.
+    Return generateContent-capable Gemini models for the given key, filtered
+    to the set that actually works with the refinement pipeline's request
+    shape. Cached 24 h per-key so the settings panel can re-query freely.
     """
     fp = _key_fingerprint(api_key)
     now = time.monotonic()
@@ -258,17 +292,20 @@ async def list_models(api_key: str, force: bool = False) -> list[dict[str, Any]]
                 raise RuntimeError(f"Gemini {r.status_code}: {msg}")
             data = r.json()
             for m in data.get("models", []):
-                if "generateContent" in (m.get("supportedGenerationMethods") or []):
-                    # "models/gemini-2.5-flash" -> "gemini-2.5-flash"
-                    raw_id = m.get("name", "")
-                    short_id = raw_id.split("/", 1)[1] if "/" in raw_id else raw_id
-                    collected.append({
-                        "id": short_id,
-                        "displayName": m.get("displayName") or short_id,
-                        "description": m.get("description") or "",
-                        "inputTokenLimit": m.get("inputTokenLimit"),
-                        "outputTokenLimit": m.get("outputTokenLimit"),
-                    })
+                if "generateContent" not in (m.get("supportedGenerationMethods") or []):
+                    continue
+                # "models/gemini-2.5-flash" -> "gemini-2.5-flash"
+                raw_id = m.get("name", "")
+                short_id = raw_id.split("/", 1)[1] if "/" in raw_id else raw_id
+                if not _is_compatible_model(short_id):
+                    continue
+                collected.append({
+                    "id": short_id,
+                    "displayName": m.get("displayName") or short_id,
+                    "description": m.get("description") or "",
+                    "inputTokenLimit": m.get("inputTokenLimit"),
+                    "outputTokenLimit": m.get("outputTokenLimit"),
+                })
             page_token = data.get("nextPageToken") or None
             if not page_token:
                 break
