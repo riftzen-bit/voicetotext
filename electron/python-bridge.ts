@@ -129,6 +129,11 @@ export class PythonBridge {
         VTT_MODEL: String(store.get("modelSize") || "large-v3"),
         VTT_TRANSCRIPTION_PROFILE: String(store.get("transcriptionProfile") || "balanced"),
         VTT_LANGUAGE_HINT: String(store.get("languageHint") || "auto"),
+        // GPU is mandatory. Default cuda + float16 (Tensor Core path).
+        // Honour an explicit override only if the user has set one; never
+        // pass an empty string, which would re-trigger the int8/CPU default.
+        VTT_DEVICE: String(store.get("whisperDevice") || "cuda"),
+        VTT_COMPUTE_TYPE: String(store.get("whisperComputeType") || "float16"),
       },
     });
 

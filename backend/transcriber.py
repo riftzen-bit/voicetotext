@@ -23,15 +23,6 @@ from audio_enhancer import apply_high_pass_filter
 
 log = logging.getLogger(__name__)
 
-_CUDA_RUNTIME_ERROR_MARKERS = (
-    "cublas",
-    "cudnn",
-    "cuda driver",
-    "cuda failed",
-    "cannot be loaded",
-    "failed to load library",
-)
-
 # Common Whisper hallucination patterns - these appear when model hallucinates on silence/noise
 _HALLUCINATION_PATTERNS = (
     # English hallucinations
@@ -277,13 +268,6 @@ class Transcriber:
             return "downloaded"
         return "not_downloaded"
 
-    def _is_cuda_runtime_error(self, exc: BaseException) -> bool:
-        if self._device != "cuda":
-            return False
-
-        error_message = str(exc).lower()
-        return any(marker in error_message for marker in _CUDA_RUNTIME_ERROR_MARKERS)
-
     def _load_model_locked(self, model_name: str, device: str) -> None:
         cached_path = get_model_path_if_cached(model_name)
         model_id = cached_path if cached_path else model_name
@@ -306,16 +290,6 @@ class Transcriber:
         self._model_name = model_name
         self._device = device
         log.info("Model %s loaded on %s.", model_name, device)
-
-    def _fallback_to_cpu_locked(self, model_name: str, exc: BaseException) -> None:
-        log.warning(
-            "CUDA runtime failed for model %s: %s. Falling back to CPU.",
-            model_name,
-            exc,
-        )
-        self._model = None
-        self._model_name = ""
-        self._load_model_locked(model_name, "cpu")
 
     def _transcribe_with_model_locked(
         self,
@@ -441,12 +415,10 @@ class Transcriber:
 
             self._loading = True
             try:
-                try:
-                    self._load_model_locked(model_name, self._device)
-                except RuntimeError as exc:
-                    if not self._is_cuda_runtime_error(exc):
-                        raise
-                    self._fallback_to_cpu_locked(model_name, exc)
+                # No CPU fallback by design — GPU is mandatory. A CUDA load
+                # failure must propagate so the UI surfaces the real error
+                # instead of silently degrading to a 30x slower CPU run.
+                self._load_model_locked(model_name, self._device)
             finally:
                 self._loading = False
 
@@ -482,12 +454,6 @@ class Transcriber:
             if self._model is None:
                 raise RuntimeError("Model not loaded")
 
-            try:
-                return self._transcribe_with_model_locked(audio, duration)
-            except RuntimeError as exc:
-                if not self._is_cuda_runtime_error(exc) or not self._model_name:
-                    raise
-
-                failed_model_name = self._model_name
-                self._fallback_to_cpu_locked(failed_model_name, exc)
-                return self._transcribe_with_model_locked(audio, duration)
+            # Same policy as load: do not catch CUDA runtime errors and
+            # silently retry on CPU. Let the failure surface.
+            return self._transcribe_with_model_locked(audio, duration)

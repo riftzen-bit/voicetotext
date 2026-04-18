@@ -15,8 +15,12 @@ _CUDA_RUNTIME_LIBRARIES = {
 }
 
 WHISPER_MODEL = os.environ.get("VTT_MODEL", "base")
-WHISPER_DEVICE = os.environ.get("VTT_DEVICE", "auto").strip().lower() or "auto"
-WHISPER_COMPUTE_TYPE = os.environ.get("VTT_COMPUTE_TYPE", "int8").strip().lower() or "int8"
+# GPU is MANDATORY. Default device is cuda; compute defaults to float16
+# (Tensor Core path on Ada/Ampere). CPU fallback is intentionally removed —
+# loading on CPU silently turned a 2s transcription into 30-60s.
+WHISPER_DEVICE = os.environ.get("VTT_DEVICE", "cuda").strip().lower() or "cuda"
+_compute_env = os.environ.get("VTT_COMPUTE_TYPE", "").strip().lower()
+WHISPER_COMPUTE_TYPE = _compute_env or ("float16" if WHISPER_DEVICE != "cpu" else "int8")
 
 DEFAULT_TRANSCRIPTION_PROFILE = (
     os.environ.get("VTT_TRANSCRIPTION_PROFILE", "balanced").strip().lower() or "balanced"
@@ -123,21 +127,15 @@ def _missing_cuda_runtime_libraries() -> tuple[str, ...]:
     return tuple(name for name in runtime_libraries if not _library_available(name))
 
 
-def _is_cpu_only_bundle() -> bool:
-    # PyInstaller CPU build strips nvidia/* entirely. Presence of
-    # _MEIPASS without a bundled nvidia/ dir means GPU was never shipped,
-    # so CUDA probing is guaranteed to miss and only produces noise.
-    meipass = getattr(sys, "_MEIPASS", None)
-    if not meipass:
-        return False
-    return not (Path(meipass) / "nvidia").is_dir()
-
-
 def _detect_runtime() -> RuntimeDiagnostics:
     requested_device = WHISPER_DEVICE
 
+    # Explicit CPU override is the only path that resolves to CPU. Default
+    # behaviour for "cuda" or anything non-cpu is to commit to CUDA so a
+    # missing driver / DLL surfaces as a hard load error instead of a
+    # silent CPU degrade.
     if requested_device == "cpu":
-        log.info("Whisper device forced to CPU.")
+        log.warning("VTT_DEVICE=cpu requested. GPU acceleration disabled.")
         return RuntimeDiagnostics(
             requested_device="cpu",
             resolved_device="cpu",
@@ -148,67 +146,37 @@ def _detect_runtime() -> RuntimeDiagnostics:
             runtime_issue=None,
         )
 
-    if requested_device == "auto" and _is_cpu_only_bundle():
-        log.info("CPU-only build detected; skipping CUDA probe.")
-        return RuntimeDiagnostics(
-            requested_device="auto",
-            resolved_device="cpu",
-            compute_type=WHISPER_COMPUTE_TYPE,
-            has_cuda_driver=False,
-            gpu_ready=False,
-            missing_runtime_libraries=(),
-            runtime_issue=None,
-        )
-
-    if requested_device not in {"auto", "cuda"}:
-        log.info("Whisper device set to custom value: %s", requested_device)
-        return RuntimeDiagnostics(
-            requested_device=requested_device,
-            resolved_device=requested_device,
-            compute_type=WHISPER_COMPUTE_TYPE,
-            has_cuda_driver=False,
-            gpu_ready=False,
-            missing_runtime_libraries=(),
-            runtime_issue=None,
-        )
-
     has_cuda_driver = _cuda_available()
-    if not has_cuda_driver:
-        issue = None
-        if requested_device == "cuda":
-            issue = "CUDA requested, but no NVIDIA driver was detected. Using CPU instead."
-            log.warning(issue)
-        else:
-            log.info("CUDA available: False")
-        return RuntimeDiagnostics(
-            requested_device=requested_device,
-            resolved_device="cpu",
-            compute_type=WHISPER_COMPUTE_TYPE,
-            has_cuda_driver=False,
-            gpu_ready=False,
-            missing_runtime_libraries=(),
-            runtime_issue=issue,
-        )
+    missing_runtime_libraries = _missing_cuda_runtime_libraries() if has_cuda_driver else ()
 
-    missing_runtime_libraries = _missing_cuda_runtime_libraries()
-    if missing_runtime_libraries:
+    if not has_cuda_driver or missing_runtime_libraries:
+        # Build a precise diagnostic so the failure is debuggable, but DO
+        # NOT fall back to CPU. The user mandates GPU-only; resolving cuda
+        # here lets WhisperModel raise the real CUDA error at load time.
+        reason_parts = []
+        if not has_cuda_driver:
+            reason_parts.append("NVIDIA driver (nvcuda) not loadable")
+        if missing_runtime_libraries:
+            reason_parts.append(
+                "missing CUDA runtime libraries: " + ", ".join(missing_runtime_libraries)
+            )
         issue = (
-            "CUDA driver detected, but required runtime libraries are missing: "
-            + ", ".join(missing_runtime_libraries)
-            + ". Using CPU instead."
+            "GPU REQUIRED but CUDA not ready (" + "; ".join(reason_parts) + "). "
+            "Install CUDA Toolkit 12.x and cuDNN 9.x, or set VTT_DEVICE=cpu to "
+            "explicitly opt out of GPU acceleration."
         )
-        log.warning(issue)
+        log.error(issue)
         return RuntimeDiagnostics(
             requested_device=requested_device,
-            resolved_device="cpu",
+            resolved_device="cuda",
             compute_type=WHISPER_COMPUTE_TYPE,
-            has_cuda_driver=True,
+            has_cuda_driver=has_cuda_driver,
             gpu_ready=False,
             missing_runtime_libraries=missing_runtime_libraries,
             runtime_issue=issue,
         )
 
-    log.info("CUDA available: True")
+    log.info("CUDA available: True (compute_type=%s)", WHISPER_COMPUTE_TYPE)
     return RuntimeDiagnostics(
         requested_device=requested_device,
         resolved_device="cuda",

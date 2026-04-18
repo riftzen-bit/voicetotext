@@ -4,8 +4,8 @@
  * This creates a portable backend that doesn't require Python installation.
  *
  * Usage:
- *   node build-backend.js         # Build CPU-only version (default, smaller)
- *   node build-backend.js --cuda  # Build CUDA version (larger, faster inference)
+ *   node build-backend.js        # Build CUDA version (default — GPU mandatory)
+ *   node build-backend.js --cpu  # Build CPU-only version (smaller, slow)
  */
 
 const { execSync, spawnSync } = require("child_process");
@@ -15,11 +15,15 @@ const fs = require("fs");
 const backendDir = path.join(__dirname, "..", "backend");
 const isWindows = process.platform === "win32";
 
-// Parse arguments
+// Parse arguments. CUDA is the default — the runtime is locked to GPU
+// (config.py defaults VTT_DEVICE=cuda, no CPU fallback). The --cpu flag
+// only exists for diagnostic builds; it produces a bundle that REQUIRES
+// the user to also set VTT_DEVICE=cpu, otherwise model load will fail
+// with a missing-CUDA error.
 const args = process.argv.slice(2);
-const buildCuda = args.includes("--cuda");
-const specFile = buildCuda ? "server.spec" : "server-cpu.spec";
-const buildType = buildCuda ? "CUDA" : "CPU-only";
+const buildCpu = args.includes("--cpu");
+const specFile = buildCpu ? "server-cpu.spec" : "server.spec";
+const buildType = buildCpu ? "CPU-only" : "CUDA";
 
 // Find Python - prefer venv, fallback to system
 function findPython() {
@@ -82,8 +86,9 @@ const result = spawnSync(
     env: {
       ...process.env,
       PYTHONUNBUFFERED: "1",
-      // Force CPU device for CPU-only build
-      ...(buildCuda ? {} : { VTT_DEVICE: "cpu" }),
+      // CPU build needs the env to short-circuit CUDA probing during the
+      // PyInstaller analysis pass. CUDA build inherits the cuda default.
+      ...(buildCpu ? { VTT_DEVICE: "cpu" } : {}),
     },
   }
 );
@@ -124,7 +129,7 @@ console.log(`\n✓ Backend built successfully! (${buildType})`);
 console.log("  Output:", outputDir);
 console.log("  Size:", sizeMB, "MB");
 
-if (!buildCuda && parseFloat(sizeMB) < 500) {
-  console.log("\n  Note: CPU-only build is smaller but uses CPU for inference.");
-  console.log("  Use --cuda flag to build with CUDA support for faster GPU inference.");
+if (buildCpu && parseFloat(sizeMB) < 500) {
+  console.log("\n  Note: CPU-only build is smaller but ~30x slower than CUDA.");
+  console.log("  Drop --cpu to produce a CUDA bundle (default).");
 }
