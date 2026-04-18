@@ -13,6 +13,8 @@ const STATE_TOOLTIPS: Record<string, string> = {
   "not-ready": "Setup required",
 };
 
+const WAVE_BARS = 5;
+
 export default function OverlayView() {
   const { phase, backendStatus } = useTranscription(true);
 
@@ -20,11 +22,8 @@ export default function OverlayView() {
   const displayState = modelNotReady ? "not-ready" : phase;
 
   useEffect(() => {
-    const api = getApi();
-    if (!api) return;
-    // Compact size for the minimal indicator
-    api.resizeOverlay(84, 84);
-  }, [phase, modelNotReady]);
+    getApi()?.resizeOverlay(180, 60);
+  }, []);
 
   const handleClick = () => {
     getApi()?.openSettings();
@@ -33,12 +32,24 @@ export default function OverlayView() {
   return (
     <div className="overlay-root">
       <div
-        className={`overlay-indicator ${displayState}`}
+        className={`overlay-pill state-${displayState}`}
         onClick={handleClick}
         data-tooltip={STATE_TOOLTIPS[displayState] || "VoiceToText"}
       >
-        <div className="indicator-core">
-          <div className="indicator-led" />
+        <div className="pill-viz">
+          {displayState === "recording" ? (
+            <div className="wave">
+              {Array.from({ length: WAVE_BARS }).map((_, i) => (
+                <span key={i} className="wave-bar" style={{ animationDelay: `${i * 90}ms` }} />
+              ))}
+            </div>
+          ) : (
+            <div className="dots">
+              <span className="dot" />
+              <span className="dot" />
+              <span className="dot" />
+            </div>
+          )}
         </div>
       </div>
     </div>

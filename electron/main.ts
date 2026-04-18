@@ -58,7 +58,7 @@ function createSettingsWindow(): BrowserWindow {
   const win = new BrowserWindow({
     width: 840,
     height: 720,
-    show: true,
+    show: false,
     frame: false,
     resizable: true,
     icon: appIcon,

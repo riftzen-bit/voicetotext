@@ -1,7 +1,6 @@
 /*
  * VoiceToText Overlay
- * Design: Premium hardware status indicator
- * Inspiration: Studio monitor power LEDs, high-end audio equipment
+ * Pill indicator: dots when idle, wave bars when recording.
  */
 
 .overlay-root {
@@ -10,286 +9,200 @@
   display: flex;
   align-items: flex-start;
   justify-content: flex-end;
-  padding: 16px;
+  padding: 12px;
   pointer-events: none;
 }
 
-/*
- * The Indicator - A precision-machined status light
- * Feels like brushed aluminum housing with a subtle LED
- */
-.overlay-indicator {
+.overlay-pill {
   pointer-events: auto;
   -webkit-app-region: drag;
-  position: relative;
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
   cursor: grab;
-
-  /* Machined metal bezel effect */
-  background:
-    linear-gradient(145deg,
-      var(--bg-elevated) 0%,
-      var(--bg-raised) 50%,
-      var(--bg-base) 100%
-    );
-
-  /* Subtle inner bevel */
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.2),
-    0 2px 8px rgba(0, 0, 0, 0.4),
-    0 0 0 1px var(--border-subtle);
 
   display: flex;
   align-items: center;
   justify-content: center;
+
+  width: 140px;
+  height: 36px;
+  padding: 0 18px;
+  border-radius: 999px;
+
+  background: var(--bg-elevated, #1a1917);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+  box-shadow:
+    0 6px 20px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
 
   transition:
-    transform var(--duration-normal) var(--ease-out),
-    box-shadow var(--duration-normal) var(--ease-out);
+    transform var(--duration-normal, 180ms) var(--ease-out, ease),
+    border-color var(--duration-normal, 180ms) var(--ease-out, ease),
+    box-shadow var(--duration-normal, 180ms) var(--ease-out, ease);
 }
 
-.overlay-indicator:hover {
-  cursor: grab;
-  transform: scale(1.04);
+.overlay-pill:hover {
+  transform: translateY(-1px);
+  border-color: var(--border-default, rgba(255, 255, 255, 0.12));
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.2),
-    0 4px 16px rgba(0, 0, 0, 0.5),
-    0 0 0 1px var(--border-default);
+    0 10px 28px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
-.overlay-indicator:active {
+.overlay-pill:active {
   cursor: grabbing;
-  transform: scale(0.98);
+  transform: translateY(0) scale(0.99);
 }
 
-/*
- * Inner LED Core - The actual light element
- */
-.indicator-core {
-  position: relative;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
+.pill-viz {
   display: flex;
   align-items: center;
   justify-content: center;
-
-  /* Recessed LED well */
-  background: var(--bg-deep);
-  box-shadow:
-    inset 0 1px 3px rgba(0, 0, 0, 0.5),
-    0 0 0 1px var(--border-subtle);
-
-  transition: all var(--duration-normal) var(--ease-out);
+  width: 100%;
+  height: 100%;
 }
 
-/*
- * LED Light Element
- */
-.indicator-led {
-  position: absolute;
-  width: 10px;
-  height: 10px;
+/* ---------- Dots (idle / processing / refining / done / error / not-ready) ---------- */
+
+.dots {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dot {
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
-  background: var(--text-muted);
-  transition: all var(--duration-normal) var(--ease-out);
+  background: var(--text-muted, #7a756c);
+  opacity: 0.55;
 }
 
-/*
- * State: IDLE
- * Subtle warm glow indicating standby
- */
-.overlay-indicator.idle .indicator-led {
-  background: var(--accent-muted);
-  box-shadow:
-    0 0 4px var(--accent-subtle),
-    inset 0 -1px 2px rgba(0, 0, 0, 0.3);
-  animation: idle-breathe 4s var(--ease-in-out) infinite;
+/* Idle: soft breathing sequence */
+.state-idle .dot {
+  background: var(--accent-muted, #c7a85a);
+  animation: dot-breathe 1.4s var(--ease-in-out, ease) infinite;
+}
+.state-idle .dot:nth-child(1) { animation-delay: 0ms; }
+.state-idle .dot:nth-child(2) { animation-delay: 180ms; }
+.state-idle .dot:nth-child(3) { animation-delay: 360ms; }
+
+@keyframes dot-breathe {
+  0%, 100% { opacity: 0.35; transform: translateY(0) scale(0.9); }
+  50%      { opacity: 1;    transform: translateY(-1px) scale(1.15); }
 }
 
-@keyframes idle-breathe {
-  0%, 100% {
-    opacity: 0.6;
-    box-shadow: 0 0 4px var(--accent-subtle);
-  }
-  50% {
-    opacity: 1;
-    box-shadow: 0 0 8px var(--accent-subtle);
-  }
+/* Processing: faster ripple, amber */
+.state-processing .dot {
+  background: var(--status-processing, #d4a24c);
+  animation: dot-breathe 0.9s var(--ease-in-out, ease) infinite;
+}
+.state-processing .dot:nth-child(1) { animation-delay: 0ms; }
+.state-processing .dot:nth-child(2) { animation-delay: 120ms; }
+.state-processing .dot:nth-child(3) { animation-delay: 240ms; }
+
+/* Refining: violet */
+.state-refining .dot {
+  background: #a78bfa;
+  animation: dot-breathe 0.9s var(--ease-in-out, ease) infinite;
+}
+.state-refining .dot:nth-child(1) { animation-delay: 0ms; }
+.state-refining .dot:nth-child(2) { animation-delay: 120ms; }
+.state-refining .dot:nth-child(3) { animation-delay: 240ms; }
+
+/* Done: green flash */
+.state-done .dot {
+  background: var(--status-success, #7aa87a);
+  opacity: 1;
+  animation: done-flash 420ms var(--ease-out, ease);
+}
+@keyframes done-flash {
+  0%   { transform: scale(1.4); opacity: 1; }
+  100% { transform: scale(1);   opacity: 1; }
 }
 
-/*
- * State: RECORDING
- * Clear red indicator - professional, not alarming
- */
-.overlay-indicator.recording .indicator-led {
-  background: var(--status-recording);
-  box-shadow:
-    0 0 8px var(--status-recording-glow),
-    0 0 16px var(--status-recording-subtle),
-    inset 0 -1px 2px rgba(0, 0, 0, 0.2);
-  animation: recording-pulse 1.5s var(--ease-in-out) infinite;
+/* Error: red blink */
+.state-error .dot {
+  background: var(--status-error, #c75450);
+  animation: error-blink 320ms var(--ease-in-out, ease) 2;
 }
-
-.overlay-indicator.recording .indicator-core {
-  box-shadow:
-    inset 0 1px 3px rgba(0, 0, 0, 0.4),
-    0 0 0 1px rgba(199, 84, 80, 0.2),
-    0 0 12px var(--status-recording-subtle);
-}
-
-@keyframes recording-pulse {
-  0%, 100% {
-    transform: scale(1);
-    box-shadow:
-      0 0 6px var(--status-recording-glow),
-      0 0 12px var(--status-recording-subtle);
-  }
-  50% {
-    transform: scale(1.1);
-    box-shadow:
-      0 0 10px var(--status-recording-glow),
-      0 0 20px var(--status-recording-subtle);
-  }
-}
-
-/*
- * State: PROCESSING
- * Amber processing indicator
- */
-.overlay-indicator.processing .indicator-led {
-  background: var(--status-processing);
-  box-shadow:
-    0 0 6px var(--status-processing-subtle),
-    inset 0 -1px 2px rgba(0, 0, 0, 0.2);
-}
-
-.overlay-indicator.processing .indicator-core {
-  animation: processing-spin 2s linear infinite;
-}
-
-@keyframes processing-spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-/* Processing spinner ring */
-.overlay-indicator.processing .indicator-core::after {
-  content: '';
-  position: absolute;
-  inset: -4px;
-  border-radius: 50%;
-  border: 1.5px solid transparent;
-  border-top-color: var(--accent);
-  border-right-color: var(--accent);
-  opacity: 0.6;
-}
-
-/*
- * State: REFINING (AI Processing)
- * Blue/purple indicator for AI refinement
- */
-.overlay-indicator.refining .indicator-led {
-  background: #7c3aed;
-  box-shadow:
-    0 0 6px rgba(124, 58, 237, 0.6),
-    inset 0 -1px 2px rgba(0, 0, 0, 0.2);
-}
-
-.overlay-indicator.refining .indicator-core {
-  animation: processing-spin 1.5s linear infinite;
-}
-
-.overlay-indicator.refining .indicator-core::after {
-  content: '';
-  position: absolute;
-  inset: -4px;
-  border-radius: 50%;
-  border: 1.5px solid transparent;
-  border-top-color: #7c3aed;
-  border-right-color: #a78bfa;
-  opacity: 0.8;
-}
-
-/*
- * State: DONE (Success)
- * Brief green confirmation
- */
-.overlay-indicator.done .indicator-led {
-  background: var(--status-success);
-  box-shadow:
-    0 0 8px var(--status-success-subtle),
-    inset 0 -1px 2px rgba(0, 0, 0, 0.2);
-  animation: success-flash 400ms var(--ease-out);
-}
-
-@keyframes success-flash {
-  0% {
-    transform: scale(1.3);
-    box-shadow: 0 0 16px var(--status-success-subtle);
-  }
-  100% {
-    transform: scale(1);
-  }
-}
-
-/*
- * State: ERROR
- * Clear but not aggressive error indication
- */
-.overlay-indicator.error .indicator-led {
-  background: var(--status-error);
-  box-shadow:
-    0 0 6px var(--status-error-subtle),
-    inset 0 -1px 2px rgba(0, 0, 0, 0.2);
-  animation: error-blink 300ms var(--ease-in-out) 2;
-}
-
 @keyframes error-blink {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+  50%      { opacity: 0.3; }
 }
 
-/*
- * State: Model Not Ready (Warning)
- * Dim amber to indicate waiting for setup
- */
-.overlay-indicator.not-ready .indicator-led {
-  background: var(--text-muted);
-  box-shadow: none;
-  animation: not-ready-pulse 2s var(--ease-in-out) infinite;
+/* Not ready: dim, static */
+.state-not-ready .dot {
+  background: var(--text-muted, #7a756c);
+  opacity: 0.35;
+  animation: not-ready-pulse 2s var(--ease-in-out, ease) infinite;
 }
-
 @keyframes not-ready-pulse {
-  0%, 100% { opacity: 0.3; }
-  50% { opacity: 0.6; }
+  0%, 100% { opacity: 0.25; }
+  50%      { opacity: 0.55; }
 }
 
-/*
- * Tooltip on hover
- */
-.overlay-indicator::after {
+.state-not-ready {
+  border-color: rgba(212, 162, 76, 0.25);
+}
+
+/* ---------- Wave bars (recording) ---------- */
+
+.state-recording {
+  border-color: rgba(199, 84, 80, 0.55);
+  box-shadow:
+    0 6px 24px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 0 0 1px rgba(199, 84, 80, 0.25);
+}
+
+.wave {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 22px;
+}
+
+.wave-bar {
+  width: 3px;
+  height: 6px;
+  border-radius: 2px;
+  background: var(--status-recording, #c75450);
+  animation: wave-bounce 0.85s var(--ease-in-out, ease) infinite;
+  box-shadow: 0 0 6px rgba(199, 84, 80, 0.45);
+}
+
+@keyframes wave-bounce {
+  0%, 100% { height: 6px;  opacity: 0.55; }
+  25%      { height: 18px; opacity: 1; }
+  50%      { height: 10px; opacity: 0.85; }
+  75%      { height: 22px; opacity: 1; }
+}
+
+/* ---------- Tooltip ---------- */
+
+.overlay-pill::after {
   content: attr(data-tooltip);
   position: absolute;
   right: calc(100% + 8px);
   top: 50%;
   transform: translateY(-50%);
-  padding: 6px 10px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  font-size: var(--text-xs);
-  color: var(--text-secondary);
+  padding: 4px 9px;
+  background: var(--bg-elevated, #1a1917);
+  border: 1px solid var(--border-default, rgba(255, 255, 255, 0.1));
+  border-radius: var(--radius-md, 6px);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary, #b8b2a7);
   white-space: nowrap;
   opacity: 0;
   pointer-events: none;
-  transition: opacity var(--duration-fast) var(--ease-out);
+  transition: opacity 120ms var(--ease-out, ease);
 }
 
-.overlay-indicator:hover::after {
+.overlay-pill {
+  position: relative;
+}
+
+.overlay-pill:hover::after {
   opacity: 1;
 }
