@@ -56,16 +56,17 @@ export default function MoreView({ items, onNavigate }: MoreViewProps) {
   return (
     <div className="more-panel">
       <header className="more-header">
-        <h1 className="more-title">More Features</h1>
+        <span className="more-eyebrow">Browse</span>
+        <h1 className="more-title">More features</h1>
         <p className="more-subtitle">
-          Every auxiliary page lives here, grouped by purpose.
+          Every auxiliary page lives here, grouped by purpose. Pick a corner to dive in.
         </p>
       </header>
 
       {sections.map((section) => (
         <section className="more-section" key={section.id}>
           <div className="more-section-heading">
-            <h2 className="more-section-title">{section.label}</h2>
+            <span className="more-section-eyebrow">{section.label}</span>
             <p className="more-section-hint">{section.description}</p>
           </div>
           <div className="more-grid">
@@ -79,7 +80,7 @@ export default function MoreView({ items, onNavigate }: MoreViewProps) {
       {orphans.length > 0 && (
         <section className="more-section">
           <div className="more-section-heading">
-            <h2 className="more-section-title">Other</h2>
+            <span className="more-section-eyebrow">Other</span>
           </div>
           <div className="more-grid">
             {orphans.map((item) => (

@@ -5,8 +5,6 @@ import {
   Wand2,
   Hash,
   Eye,
-  Sparkles,
-  Type,
 } from "lucide-react";
 import { useSettings } from "../hooks/useSettings";
 import {
@@ -64,22 +62,20 @@ export default function FormattingView() {
   return (
     <div className="formatting-view feature-view feature-view--wide">
       <header className="feature-hero">
-        <span className="feature-medallion tone-yellow" aria-hidden>
-          <Type />
+        <span className="feature-medallion tone-pink" aria-hidden>
+          <Wand2 />
         </span>
         <div className="feature-hero-body">
-          <span className="feature-hero-eyebrow">
-            <Sparkles size={12} strokeWidth={2.5} /> Smart formatting
-          </span>
-          <h1 className="feature-hero-title">Smart Formatting</h1>
+          <span className="feature-hero-eyebrow">Formatting</span>
+          <h1 className="feature-hero-title">Smart formatting</h1>
           <p className="feature-hero-description">
-            Automatic text polish applied after every transcription. Capitalise
-            sentences, tidy punctuation, straighten quotes, and detect lists —
-            all before the text reaches the clipboard.
+            Polish applied to every transcript before it reaches the clipboard.
+            Tidy punctuation, straighten quotes, standardise numbers, and
+            detect lists.
           </p>
           <div className="feature-hero-meta">
-            <span className="feature-chip accent">{activeCount} rules on</span>
-            <span className="feature-chip">Number style: {options.numberFormatting}</span>
+            <span className="feature-chip accent">{activeCount} of 5 rules on</span>
+            <span className="feature-chip">Numbers: {options.numberFormatting}</span>
           </div>
         </div>
         <div className="feature-hero-actions">

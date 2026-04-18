@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { BarChart3, Sparkles, Flame } from "lucide-react";
+import { BarChart3, Flame } from "lucide-react";
 import type { TranscriptionEntry, TranscriptionCategory } from "../hooks/useTranscription";
 
 const CATEGORY_LABELS: Record<TranscriptionCategory, { label: string; color: string; icon: string }> = {
@@ -342,17 +342,15 @@ export default function AnalyticsView({ entries }: AnalyticsViewProps) {
   return (
     <div className="analytics-view feature-view feature-view--wide">
       <header className="feature-hero">
-        <span className="feature-medallion tone-green" aria-hidden>
+        <span className="feature-medallion tone-orange" aria-hidden>
           <BarChart3 />
         </span>
         <div className="feature-hero-body">
-          <span className="feature-hero-eyebrow">
-            <Sparkles size={12} strokeWidth={2.5} /> Insights
-          </span>
-          <h1 className="feature-hero-title">Analytics</h1>
+          <span className="feature-hero-eyebrow">Analytics</span>
+          <h1 className="feature-hero-title">Activity insights</h1>
           <p className="feature-hero-description">
-            See how you use voice dictation — streaks, word counts, busy days,
-            language mix, and time saved compared with typing by hand.
+            How you use dictation — streaks, word counts, busy days, language
+            mix, and time saved over typing.
           </p>
           <div className="feature-hero-meta">
             <span className="feature-chip accent">

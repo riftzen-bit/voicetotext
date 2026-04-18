@@ -2,16 +2,18 @@ import { useState, useEffect } from "react";
 import {
   Mic,
   Clipboard,
-  Sparkles,
+  Wand2,
   Lock,
   Code2,
   Globe,
-  Star,
+  Cpu,
   Copy,
   Check,
   Info,
   ExternalLink,
 } from "lucide-react";
+
+const APP_VERSION = "0.3.2";
 
 interface SystemInfo {
   platform: string;
@@ -32,7 +34,7 @@ const FEATURES: { Icon: typeof Mic; title: string; hint: string }[] = [
     hint: "Drop the transcript into the focused app automatically.",
   },
   {
-    Icon: Sparkles,
+    Icon: Wand2,
     title: "AI refinement",
     hint: "Optional Gemini polish for grammar, tone, and templates.",
   },
@@ -46,7 +48,7 @@ const FEATURES: { Icon: typeof Mic; title: string; hint: string }[] = [
 const RESOURCES: { Icon: typeof Code2; label: string; url: string }[] = [
   { Icon: Code2, label: "GitHub repository", url: "https://github.com" },
   { Icon: Globe, label: "Whisper by OpenAI", url: "https://openai.com/research/whisper" },
-  { Icon: Star, label: "Google Gemini", url: "https://ai.google.dev" },
+  { Icon: Cpu, label: "Google Gemini", url: "https://ai.google.dev" },
 ];
 
 export default function AboutView() {
@@ -65,7 +67,7 @@ export default function AboutView() {
 
   const handleCopySystemInfo = async () => {
     if (!systemInfo) return;
-    const info = `VoiceToText v0.2.0
+    const info = `VoiceToText v${APP_VERSION}
 Platform: ${systemInfo.platform}
 Architecture: ${systemInfo.arch}
 Electron: ${systemInfo.electronVersion}
@@ -86,20 +88,18 @@ User Agent: ${navigator.userAgent}`;
   return (
     <div className="about-view feature-view feature-view--wide">
       <header className="feature-hero">
-        <span className="feature-medallion tone-blue" aria-hidden>
+        <span className="feature-medallion tone-graphite" aria-hidden>
           <Mic />
         </span>
         <div className="feature-hero-body">
-          <span className="feature-hero-eyebrow">
-            <Sparkles size={12} strokeWidth={2.5} /> About
-          </span>
+          <span className="feature-hero-eyebrow">About</span>
           <h1 className="feature-hero-title">VoiceToText</h1>
           <p className="feature-hero-description">
             Local voice-to-text with Whisper V3. Push to talk, auto-paste,
             optional AI polish. Your audio never leaves the device.
           </p>
           <div className="feature-hero-meta">
-            <span className="feature-chip accent">Version 0.2.0</span>
+            <span className="feature-chip accent">Version {APP_VERSION}</span>
             <span className="feature-chip">MIT licensed</span>
           </div>
         </div>

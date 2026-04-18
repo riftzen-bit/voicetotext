@@ -7,7 +7,6 @@ import {
   FileCode,
   Copy,
   Check,
-  Sparkles,
   Eye,
 } from "lucide-react";
 import type { TranscriptionEntry } from "../hooks/useTranscription";
@@ -232,18 +231,16 @@ export default function ExportView({ entries }: ExportViewProps) {
   return (
     <div className="export-view feature-view feature-view--wide">
       <header className="feature-hero">
-        <span className="feature-medallion tone-teal" aria-hidden>
+        <span className="feature-medallion tone-yellow" aria-hidden>
           <FileDown />
         </span>
         <div className="feature-hero-body">
-          <span className="feature-hero-eyebrow">
-            <Sparkles size={12} strokeWidth={2.5} /> Export
-          </span>
-          <h1 className="feature-hero-title">Export Transcriptions</h1>
+          <span className="feature-hero-eyebrow">Export</span>
+          <h1 className="feature-hero-title">Export transcripts</h1>
           <p className="feature-hero-description">
             Turn your transcription history into a downloadable file or copy it
-            straight to the clipboard. Pick a format, choose what to include,
-            and preview before exporting.
+            to the clipboard. Pick a format, choose what to include, and
+            preview before exporting.
           </p>
           <div className="feature-hero-meta">
             <span className="feature-chip accent">

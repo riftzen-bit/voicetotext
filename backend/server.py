@@ -461,11 +461,56 @@ async def ai_models(key: str = Query("", description="Gemini API key"), force: b
     return JSONResponse({"status": "ok", "models": models})
 
 
+@app.post("/ai/review")
+async def ai_review(payload: dict = Body(default={})):
+    """
+    Standalone review pass for branches that skip /ai/refine (agent templates
+    and legacy single-call polish). Takes the draft that came out of the
+    first-pass call and returns the FINAL reviewed version. On failure the
+    frontend is expected to fall back to the draft — never losing the first
+    pass's result.
+
+    Body:
+      original   : input text that produced the draft (required)
+      draft      : first-pass output to review (required)
+      template   : optional user style/context prompt
+      kind       : "agent" | "polish"  (default "polish")
+      api_key    : Gemini API key (required)
+      model      : Gemini model id (default gemini-2.5-flash)
+    """
+    original = (payload.get("original") or "").strip()
+    draft = (payload.get("draft") or "").strip()
+    api_key = payload.get("api_key") or ""
+    template = payload.get("template") or None
+    kind = payload.get("kind") or "polish"
+    model = payload.get("model") or ai_pipeline.DEFAULT_MODEL
+
+    if not draft:
+        return JSONResponse({"status": "error", "message": "Empty draft"}, status_code=400)
+    if not api_key:
+        return JSONResponse({"status": "error", "message": "Missing api_key"}, status_code=400)
+    if kind not in ("agent", "polish"):
+        kind = "polish"
+
+    try:
+        final = await ai_pipeline.review_simple(
+            original=original,
+            draft=draft,
+            api_key=api_key,
+            model=model,
+            template_prompt=template,
+            kind=kind,
+        )
+    except Exception as e:
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=502)
+    return JSONResponse({"status": "ok", "text": final})
+
+
 @app.post("/ai/refine")
 async def ai_refine(payload: dict = Body(default={})):
     """
-    Two-step Gemini pipeline (analyze -> adjust) streamed as SSE so the UI
-    can show progress between the two model calls without long silence.
+    Three-step Gemini pipeline (analyze -> adjust -> review) streamed as SSE so
+    the UI can show progress between the three model calls without long silence.
 
     Body:
       text          : transcript to refine (required)

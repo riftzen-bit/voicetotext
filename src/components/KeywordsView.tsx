@@ -8,7 +8,6 @@ import {
   Download,
   Tags,
   ArrowRight,
-  Sparkles,
 } from "lucide-react";
 import { useKeywords } from "../hooks/useKeywords";
 import type { Keyword } from "../lib/ipc";
@@ -168,18 +167,16 @@ export default function KeywordsView() {
   return (
     <div className="feature-view feature-view--wide">
       <header className="feature-hero">
-        <span className="feature-medallion tone-orange" aria-hidden>
+        <span className="feature-medallion tone-brown" aria-hidden>
           <Tags />
         </span>
         <div className="feature-hero-body">
-          <span className="feature-hero-eyebrow">
-            <Sparkles size={12} strokeWidth={2.5} /> Vocabulary
-          </span>
-          <h1 className="feature-hero-title">Keyword Corrections</h1>
+          <span className="feature-hero-eyebrow">Keywords</span>
+          <h1 className="feature-hero-title">Keyword corrections</h1>
           <p className="feature-hero-description">
-            Replace words or phrases automatically after every transcription. Useful for
-            fixing misheard names, technical jargon, and acronyms the speech model keeps
-            getting wrong.
+            Replace words or phrases automatically after every transcription.
+            Fixes misheard names, technical jargon, and acronyms the speech
+            model keeps getting wrong.
           </p>
           <div className="feature-hero-meta">
             <span className="feature-chip accent">

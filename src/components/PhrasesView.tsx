@@ -6,7 +6,6 @@ import {
   Search,
   Copy,
   MessageSquareText,
-  Sparkles,
   Zap,
 } from "lucide-react";
 import { getApi } from "../lib/ipc";
@@ -165,18 +164,15 @@ export default function PhrasesView({ onInsert }: PhrasesViewProps) {
   return (
     <div className="phrases-view feature-view feature-view--wide">
       <header className="feature-hero">
-        <span className="feature-medallion tone-pink" aria-hidden>
+        <span className="feature-medallion tone-teal" aria-hidden>
           <MessageSquareText />
         </span>
         <div className="feature-hero-body">
-          <span className="feature-hero-eyebrow">
-            <Sparkles size={12} strokeWidth={2.5} /> Quick phrases
-          </span>
-          <h1 className="feature-hero-title">Quick Phrases</h1>
+          <span className="feature-hero-eyebrow">Phrases</span>
+          <h1 className="feature-hero-title">Quick phrases</h1>
           <p className="feature-hero-description">
-            Save frequently used snippets and paste them with a click. Great for
-            greetings, sign-offs, canned replies, and anything you type over
-            and over.
+            Save reusable snippets and paste them in one click. Greetings,
+            sign-offs, canned replies, and anything you type over and over.
           </p>
           <div className="feature-hero-meta">
             <span className="feature-chip accent">

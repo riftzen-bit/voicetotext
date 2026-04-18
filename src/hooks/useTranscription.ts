@@ -5,7 +5,7 @@ import { useWebSocket, TranscriptionMessage } from "./useWebSocket";
 import { useSettings } from "./useSettings";
 import { playSound } from "../lib/sounds";
 import { refineTextWithGemini, generateWithGemini } from "../lib/gemini";
-import { refineWithPipeline } from "../lib/ai";
+import { refineWithPipeline, reviewDraft } from "../lib/ai";
 import { withTimeout } from "../lib/with-timeout";
 
 // Cap AI refinement so a hung Gemini call can't strand a 5+ minute recording
@@ -330,8 +330,29 @@ export function useTranscription(enableWs = true) {
                   AI_REFINEMENT_TIMEOUT_MS,
                   "Gemini agent",
                 );
-                if (reply && reply !== text) {
-                  text = reply;
+                let draft = reply && reply !== text ? reply : text;
+                // Review pass: AI reviews its own agent response and commits
+                // to the FINAL version that reaches the focused window. On
+                // failure we fall back to the draft so we never lose work.
+                if (draft !== text) {
+                  try {
+                    const reviewed = await withTimeout(
+                      reviewDraft({
+                        original: text,
+                        draft,
+                        apiKey: settings.geminiApiKey,
+                        model: settings.geminiModel,
+                        template: contextPrompt,
+                        kind: "agent",
+                      }),
+                      AI_REFINEMENT_TIMEOUT_MS,
+                      "AI review (agent)"
+                    );
+                    if (reviewed && reviewed.trim().length > 0) draft = reviewed;
+                  } catch (err) {
+                    console.warn("Agent review pass failed, using draft:", err);
+                  }
+                  text = draft;
                   wasRefined = true;
                 }
               } else if (mode && mode !== "off") {
@@ -367,8 +388,29 @@ export function useTranscription(enableWs = true) {
                   AI_REFINEMENT_TIMEOUT_MS,
                   "Gemini polish"
                 );
-                if (refinedText && refinedText !== text) {
-                  text = refinedText;
+                let draft = refinedText && refinedText !== text ? refinedText : text;
+                // Review pass for the legacy single-call polish branch so
+                // every AI flow (pipeline / agent / legacy) ends on a
+                // reviewed FINAL before paste. Fall back to draft on error.
+                if (draft !== text) {
+                  try {
+                    const reviewed = await withTimeout(
+                      reviewDraft({
+                        original: text,
+                        draft,
+                        apiKey: settings.geminiApiKey,
+                        model: settings.geminiModel,
+                        template: contextPrompt,
+                        kind: "polish",
+                      }),
+                      AI_REFINEMENT_TIMEOUT_MS,
+                      "AI review (polish)"
+                    );
+                    if (reviewed && reviewed.trim().length > 0) draft = reviewed;
+                  } catch (err) {
+                    console.warn("Polish review pass failed, using draft:", err);
+                  }
+                  text = draft;
                   wasRefined = true;
                 }
               }

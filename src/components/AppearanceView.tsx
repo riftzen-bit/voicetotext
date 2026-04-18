@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import {
   Palette,
-  Sparkles,
   Sun,
   Moon,
   MonitorSmartphone,
@@ -63,14 +62,12 @@ export default function AppearanceView() {
   return (
     <div className="appearance-view feature-view feature-view--wide">
       <header className="feature-hero">
-        <span className="feature-medallion tone-purple" aria-hidden>
+        <span className="feature-medallion tone-red" aria-hidden>
           <Palette />
         </span>
         <div className="feature-hero-body">
-          <span className="feature-hero-eyebrow">
-            <Sparkles size={12} strokeWidth={2.5} /> Personalisation
-          </span>
-          <h1 className="feature-hero-title">Appearance</h1>
+          <span className="feature-hero-eyebrow">Appearance</span>
+          <h1 className="feature-hero-title">Look and feel</h1>
           <p className="feature-hero-description">
             Tune the theme, accent tone, and floating indicator. Changes apply
             instantly and sync across every window.

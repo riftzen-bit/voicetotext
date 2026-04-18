@@ -1,15 +1,19 @@
 /**
- * Client for the backend's two-step Gemini pipeline.
+ * Client for the backend's three-step Gemini pipeline.
  *
  * The pipeline endpoint (/ai/refine) streams Server-Sent Events, not a
- * single JSON blob, so we can show "analyzing → adjusting → done" progress
- * in the UI while the two Gemini calls run. We use `fetch` + ReadableStream
- * (not EventSource) because EventSource only supports GET and doesn't let
- * us POST the transcript body.
+ * single JSON blob, so we can show "analyzing → adjusting → reviewing → done"
+ * progress in the UI while the three Gemini calls run. We use `fetch` +
+ * ReadableStream (not EventSource) because EventSource only supports GET and
+ * doesn't let us POST the transcript body.
  *
  * Parser is deliberately SSE-only: frames are "event: <name>\ndata: <json>\n\n".
  * Anything that doesn't parse as JSON in the data: field is yielded raw so the
  * caller can log it.
+ *
+ * The companion /ai/review endpoint (reviewDraft below) is a single-call
+ * review pass used by bypass branches in the UI that don't go through the
+ * full pipeline (agent templates and legacy polish).
  */
 
 const BACKEND = "http://127.0.0.1:8769";
@@ -31,7 +35,7 @@ export interface AiAnalysis {
 }
 
 export interface AiRefineEvent {
-  event: "analyzing" | "analysis" | "adjusting" | "done" | "error";
+  event: "analyzing" | "analysis" | "adjusting" | "reviewing" | "done" | "error";
   data: unknown;
 }
 
@@ -50,6 +54,45 @@ export interface AiRefineRequest {
 export interface AiRefineResult {
   text: string;
   analysis: AiAnalysis | null;
+}
+
+export interface ReviewRequest {
+  original: string;
+  draft: string;
+  apiKey: string;
+  model: string;
+  template?: string | null;
+  kind?: "agent" | "polish";
+  signal?: AbortSignal;
+}
+
+/**
+ * Standalone review pass for the agent + legacy-polish branches that skip the
+ * /ai/refine pipeline. Returns the reviewed FINAL. Callers MUST fall back to
+ * `draft` on throw / empty so a failing review can never erase the first-pass
+ * result. Kept as a small dedicated call (no analyze / adjust) because those
+ * steps have already happened in the bypass branch's single-call AI.
+ */
+export async function reviewDraft(req: ReviewRequest): Promise<string> {
+  const r = await fetch(`${BACKEND}/ai/review`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      original: req.original,
+      draft: req.draft,
+      api_key: req.apiKey,
+      model: req.model,
+      template: req.template || null,
+      kind: req.kind || "polish",
+    }),
+    signal: req.signal,
+  });
+  if (!r.ok) {
+    const body = await r.json().catch(() => ({}));
+    throw new Error(body.message || `HTTP ${r.status}`);
+  }
+  const data = await r.json();
+  return (data.text as string) || req.draft;
 }
 
 export async function fetchGeminiModels(

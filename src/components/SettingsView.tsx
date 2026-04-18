@@ -34,11 +34,22 @@ import {
   Info,
   ChevronLeft,
   Mic,
+  Keyboard,
+  Clipboard,
+  Copy,
+  AlertTriangle,
 } from "lucide-react";
 import "../styles/settings.css";
 
 type ModelStatus = "not_downloaded" | "downloading" | "downloaded" | "loading" | "loaded" | "error";
 type TabType = "general" | "ai" | "templates" | "formatting" | "history" | "analytics" | "phrases" | "keywords" | "shortcuts" | "export" | "appearance" | "about" | "more";
+
+const PIPELINE_MODES: { value: AiMode; label: string; hint: string }[] = [
+  { value: "off", label: "Off", hint: "Single-shot polish only. No analyze, adjust, or review." },
+  { value: "refine", label: "Refine", hint: "Clean grammar and punctuation in the same language." },
+  { value: "translate", label: "Translate", hint: "Rewrite the transcript in your target language." },
+  { value: "summarize-translate", label: "Summarize + translate", hint: "Condense the transcript, then translate." },
+];
 
 interface TabConfig {
   id: TabType;
@@ -535,320 +546,463 @@ export default function SettingsView() {
           )}
 
           {activeTab === "general" && (
-            <div className="settings-panel">
-              <section className="settings-section">
-                <h2 className="section-header">Workflow</h2>
-
-                <div className="field-row">
-                  <div className="field-info">
-                    <span className="field-label">Activation Mode</span>
-                    <span className="field-hint">How recording is triggered</span>
+            <div className="settings-panel settings-panel--capture">
+              <section className="capture-hero">
+                <div className="capture-hero-head">
+                  <div className="capture-hero-titles">
+                    <span className="capture-hero-eyebrow">Capture</span>
+                    <h2 className="capture-hero-title">Voice input</h2>
+                    <p className="capture-hero-sub">
+                      Hold the shortcut to record, release to transcribe. Switch to Toggle
+                      if you prefer starting and stopping with two presses.
+                    </p>
                   </div>
-                  <select
-                    className="form-select"
-                    value={settings.hotkeyMode}
-                    onChange={(e) => updateSetting("hotkeyMode", e.target.value as "ptt" | "ttt")}
+                  <div
+                    className="capture-mode-segmented"
+                    role="tablist"
+                    aria-label="Activation mode"
                   >
-                    <option value="ptt">Hold to Talk</option>
-                    <option value="ttt">Toggle Mode</option>
-                  </select>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={settings.hotkeyMode === "ptt"}
+                      className={`capture-mode-pill ${settings.hotkeyMode === "ptt" ? "active" : ""}`}
+                      onClick={() => updateSetting("hotkeyMode", "ptt")}
+                    >
+                      Hold to talk
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={settings.hotkeyMode === "ttt"}
+                      className={`capture-mode-pill ${settings.hotkeyMode === "ttt" ? "active" : ""}`}
+                      onClick={() => updateSetting("hotkeyMode", "ttt")}
+                    >
+                      Toggle
+                    </button>
+                  </div>
                 </div>
 
-                <div className="field-row">
-                  <div className="field-info">
-                    <span className="field-label">Global Hotkey</span>
-                    <span className="field-hint">Keyboard shortcut</span>
+                <div className="capture-hotkey-row">
+                  <span className="capture-hotkey-label">
+                    <Keyboard size={13} strokeWidth={2} />
+                    Global shortcut
+                  </span>
+                  <div className="capture-hotkey-display" aria-hidden>
+                    {settings.hotkey
+                      ? settings.hotkey
+                          .split("+")
+                          .map((s) => s.trim())
+                          .filter(Boolean)
+                          .flatMap((key, i, arr) =>
+                            i < arr.length - 1
+                              ? [
+                                  <kbd key={`k-${i}`} className="capture-key">{key}</kbd>,
+                                  <span key={`p-${i}`} className="capture-hotkey-plus">+</span>,
+                                ]
+                              : [<kbd key={`k-${i}`} className="capture-key">{key}</kbd>]
+                          )
+                      : <span className="capture-hotkey-empty">Not set</span>}
                   </div>
                   <input
-                    className="form-input"
+                    className="capture-hotkey-input"
                     value={settings.hotkey}
                     onChange={(e) => updateSetting("hotkey", e.target.value)}
                     placeholder="Ctrl+Shift+R"
-                  />
-                </div>
-
-                <div className="field-row">
-                  <div className="field-info">
-                    <span className="field-label">Auto-paste</span>
-                    <span className="field-hint">Insert text into active window</span>
-                  </div>
-                  <div
-                    role="switch"
-                    aria-checked={!!settings.autoPaste}
-                    aria-label="Auto-paste"
-                    className={`toggle-switch ${settings.autoPaste ? "active" : ""}`}
-                    onClick={() => updateSetting("autoPaste", !settings.autoPaste)}
-                  />
-                </div>
-
-                <div className="field-row">
-                  <div className="field-info">
-                    <span className="field-label">Copy to clipboard</span>
-                    <span className="field-hint">
-                      Keep transcript on clipboard. Off preserves what you had
-                      copied before recording.
-                    </span>
-                  </div>
-                  <div
-                    role="switch"
-                    aria-checked={!!settings.copyToClipboard}
-                    aria-label="Copy to clipboard"
-                    className={`toggle-switch ${settings.copyToClipboard ? "active" : ""}`}
-                    onClick={() =>
-                      updateSetting("copyToClipboard", !settings.copyToClipboard)
-                    }
+                    aria-label="Global hotkey"
+                    spellCheck={false}
                   />
                 </div>
               </section>
 
-              <section className="settings-section">
-                <h2 className="section-header">Hardware</h2>
-
-                <div className="field-row">
-                  <div className="field-info">
-                    <span className="field-label">Microphone</span>
-                    <span className="field-hint">Audio input device</span>
+              <section className="capture-input-card">
+                <div className="capture-input-head">
+                  <span className="capture-input-icon" aria-hidden>
+                    <Mic size={16} strokeWidth={2} />
+                  </span>
+                  <div>
+                    <span className="capture-input-title">Microphone</span>
+                    <span className="capture-input-hint">Audio input device used for recording</span>
                   </div>
-                  <AudioDeviceSelect
-                    value={settings.audioDevice}
-                    onChange={(v) => updateSetting("audioDevice", v)}
-                  />
                 </div>
+                <AudioDeviceSelect
+                  value={settings.audioDevice}
+                  onChange={(v) => updateSetting("audioDevice", v)}
+                />
+              </section>
+
+              <section className="capture-output-grid" aria-label="Output behaviour">
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={!!settings.autoPaste}
+                  className={`capture-output-card ${settings.autoPaste ? "on" : ""}`}
+                  onClick={() => updateSetting("autoPaste", !settings.autoPaste)}
+                >
+                  <span className="capture-output-icon" aria-hidden>
+                    <Clipboard size={15} strokeWidth={2} />
+                  </span>
+                  <span className="capture-output-body">
+                    <span className="capture-output-title">Auto-paste</span>
+                    <span className="capture-output-hint">
+                      Drop the transcript into the focused window as soon as it's ready.
+                    </span>
+                  </span>
+                  <span
+                    className={`toggle-switch ${settings.autoPaste ? "active" : ""}`}
+                    aria-hidden
+                  />
+                </button>
+
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={!!settings.copyToClipboard}
+                  className={`capture-output-card ${settings.copyToClipboard ? "on" : ""}`}
+                  onClick={() =>
+                    updateSetting("copyToClipboard", !settings.copyToClipboard)
+                  }
+                >
+                  <span className="capture-output-icon" aria-hidden>
+                    <Copy size={15} strokeWidth={2} />
+                  </span>
+                  <span className="capture-output-body">
+                    <span className="capture-output-title">Keep on clipboard</span>
+                    <span className="capture-output-hint">
+                      Leave the transcript on your clipboard. Off restores what you had
+                      copied before recording.
+                    </span>
+                  </span>
+                  <span
+                    className={`toggle-switch ${settings.copyToClipboard ? "active" : ""}`}
+                    aria-hidden
+                  />
+                </button>
               </section>
 
               {pasteStatus && (
-                <section className="settings-section">
-                  <h2 className="section-header">Diagnostics</h2>
-                  <div className="error-message">{pasteStatus.message}</div>
+                <section className="capture-alert" role="alert">
+                  <AlertTriangle size={16} strokeWidth={2} />
+                  <div className="capture-alert-body">
+                    <strong>Paste diagnostic</strong>
+                    <p>{pasteStatus.message}</p>
+                  </div>
                 </section>
               )}
             </div>
           )}
 
           {activeTab === "ai" && (
-            <div className="settings-panel">
-              <section className="settings-section">
-                <h2 className="section-header">Local Engine</h2>
-
-                <div className="field-row">
-                  <div className="field-info">
-                    <span className="field-label">Model</span>
-                    <span className="field-hint">Whisper variant for transcription</span>
+            <div className="settings-panel settings-panel--engine">
+              <section className="engine-hero">
+                <div className="engine-hero-head">
+                  <div className="engine-hero-titles">
+                    <span className="engine-hero-eyebrow">Local engine</span>
+                    <h2 className="engine-hero-title">On-device transcription</h2>
+                    <p className="engine-hero-sub">
+                      Whisper runs entirely on your machine. Audio never leaves the device,
+                      no cloud round-trip required.
+                    </p>
                   </div>
-                  <select
-                    className="form-select"
-                    value={settings.modelSize}
-                    onChange={(e) => {
-                      updateSetting("modelSize", e.target.value);
-                      setDlProgress(0);
-                      setDlDownloaded(0);
-                      setErrorMsg("");
-                    }}
-                    disabled={modelStatus === "downloading" || modelStatus === "loading"}
+                  <div
+                    className={`engine-hero-badge ${statusBadge.className || "idle"}`}
+                    title={profileLabel || undefined}
                   >
-                    {modelCatalog.map((model) => (
-                      <option key={model.value} value={model.value}>
-                        {model.label}
-                      </option>
-                    ))}
-                  </select>
+                    <span className="engine-status-dot" />
+                    <span className="engine-status-label">{statusBadge.label}</span>
+                  </div>
                 </div>
 
-                <div className="field-row">
-                  <div className="field-info">
-                    <span className="field-label">Language</span>
-                    <span className="field-hint">Target language for recognition</span>
+                <div className="engine-hero-stats" role="list">
+                  <div className="engine-stat" role="listitem">
+                    <span className="engine-stat-label">Model</span>
+                    <span className="engine-stat-value">{settings.modelSize}</span>
                   </div>
-                  <select
-                    className="form-select"
-                    value={settings.languageHint}
-                    onChange={(e) => updateSetting("languageHint", e.target.value)}
-                  >
-                    <option value="auto">Auto-detect</option>
-                    <option value="vi">Vietnamese</option>
-                    <option value="en">English</option>
-                    <option value="ja">Japanese</option>
-                    <option value="ko">Korean</option>
-                    <option value="zh">Chinese</option>
-                    <option value="fr">French</option>
-                    <option value="de">German</option>
-                    <option value="es">Spanish</option>
-                  </select>
-                </div>
-
-                <div className="field-row">
-                  <div className="field-info">
-                    <span className="field-label">Status</span>
-                    <span className="field-hint">{profileLabel}</span>
+                  <div className="engine-stat" role="listitem">
+                    <span className="engine-stat-label">Device</span>
+                    <span className="engine-stat-value">{modelDevice.toUpperCase()}</span>
                   </div>
-                  <div className="status-actions">
-                    <span className={`status-badge ${statusBadge.className}`}>
-                      {statusBadge.label}
+                  <div className="engine-stat engine-stat--wide" role="listitem">
+                    <span className="engine-stat-label">Profile</span>
+                    <span className="engine-stat-value engine-stat-value--sm">
+                      {profileLabel || "—"}
                     </span>
+                  </div>
+                </div>
+
+                <div className="engine-hero-grid">
+                  <label className="engine-field">
+                    <span className="engine-field-label">Whisper model</span>
+                    <span className="engine-field-hint">
+                      Larger models are more accurate but slower to run.
+                    </span>
+                    <select
+                      className="form-select engine-select"
+                      value={settings.modelSize}
+                      onChange={(e) => {
+                        updateSetting("modelSize", e.target.value);
+                        setDlProgress(0);
+                        setDlDownloaded(0);
+                        setErrorMsg("");
+                      }}
+                      disabled={modelStatus === "downloading" || modelStatus === "loading"}
+                    >
+                      {modelCatalog.map((model) => (
+                        <option key={model.value} value={model.value}>
+                          {model.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="engine-field">
+                    <span className="engine-field-label">Input language</span>
+                    <span className="engine-field-hint">
+                      Narrow recognition to one language or leave it on auto-detect.
+                    </span>
+                    <select
+                      className="form-select engine-select"
+                      value={settings.languageHint}
+                      onChange={(e) => updateSetting("languageHint", e.target.value)}
+                    >
+                      <option value="auto">Auto-detect</option>
+                      <option value="vi">Vietnamese</option>
+                      <option value="en">English</option>
+                      <option value="ja">Japanese</option>
+                      <option value="ko">Korean</option>
+                      <option value="zh">Chinese</option>
+                      <option value="fr">French</option>
+                      <option value="de">German</option>
+                      <option value="es">Spanish</option>
+                    </select>
+                  </label>
+                </div>
+
+                {(modelStatus === "not_downloaded" ||
+                  modelStatus === "error" ||
+                  modelStatus === "downloaded") && (
+                  <div className="engine-hero-actions">
                     {(modelStatus === "not_downloaded" || modelStatus === "error") && (
-                      <button className="btn btn-primary" onClick={handleDownload}>
-                        Download
+                      <button className="engine-btn primary" onClick={handleDownload}>
+                        Download model
                       </button>
                     )}
                     {modelStatus === "downloaded" && (
-                      <button className="btn btn-primary" onClick={handleLoad}>
-                        Load
+                      <button className="engine-btn primary" onClick={handleLoad}>
+                        Load model
                       </button>
                     )}
                   </div>
-                </div>
+                )}
 
                 {modelStatus === "downloading" && (
-                  <div className="progress-container">
-                    <div className="progress-track">
-                      <div className="progress-fill" style={{ width: `${progressPct}%` }} />
+                  <div className="engine-progress">
+                    <div className="engine-progress-track">
+                      <div
+                        className="engine-progress-fill"
+                        style={{ width: `${progressPct}%` }}
+                      />
                     </div>
-                    <div className="progress-stats">
-                      <span>{dlDownloaded.toFixed(1)} / {dlTotal.toFixed(1)} MB</span>
+                    <div className="engine-progress-stats">
+                      <span>
+                        {dlDownloaded.toFixed(1)} / {dlTotal.toFixed(1)} MB ·{" "}
+                        {progressPct}%
+                      </span>
                       {dlSpeed > 0 && <span>{dlSpeed.toFixed(1)} MB/s</span>}
                     </div>
                   </div>
                 )}
 
                 {modelStatus === "loading" && (
-                  <div className="progress-container">
-                    <div className="progress-track">
-                      <div className="progress-fill indeterminate" />
+                  <div className="engine-progress">
+                    <div className="engine-progress-track">
+                      <div className="engine-progress-fill indeterminate" />
+                    </div>
+                    <div className="engine-progress-stats">
+                      <span>Loading model into memory…</span>
                     </div>
                   </div>
                 )}
 
                 {errorMsg && modelStatus === "error" && (
-                  <div className="error-message">{errorMsg}</div>
+                  <div className="capture-alert" role="alert">
+                    <AlertTriangle size={16} strokeWidth={2} />
+                    <div className="capture-alert-body">
+                      <strong>Model error</strong>
+                      <p>{errorMsg}</p>
+                    </div>
+                  </div>
                 )}
 
-                {runtimeIssue && <div className="error-message">{runtimeIssue}</div>}
+                {runtimeIssue && (
+                  <div className="capture-alert" role="alert">
+                    <AlertTriangle size={16} strokeWidth={2} />
+                    <div className="capture-alert-body">
+                      <strong>Runtime warning</strong>
+                      <p>{runtimeIssue}</p>
+                    </div>
+                  </div>
+                )}
               </section>
 
-              <section className="settings-section">
-                <h2 className="section-header">Cloud Refinement</h2>
-                <p className="section-description">
-                  Connect a Gemini API key to automatically refine grammar and punctuation before pasting.
-                </p>
-
-                <div className="field-row">
-                  <div className="field-info">
-                    <span className="field-label">Enable Refinement</span>
-                    <span className="field-hint">Post-process with AI</span>
+              <section className={`cloud-card ${settings.useGemini ? "on" : "off"}`}>
+                <header className="cloud-head">
+                  <div className="cloud-head-text">
+                    <span className="cloud-eyebrow">Cloud refinement</span>
+                    <h2 className="cloud-title">AI polish with Gemini</h2>
+                    <p className="cloud-sub">
+                      Post-process each transcript through Google Gemini to fix grammar,
+                      apply templates, and translate. Connect a free key — only the text
+                      you record is sent, never the audio.
+                    </p>
                   </div>
-                  <div
-                    className={`toggle-switch ${settings.useGemini ? "active" : ""}`}
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={!!settings.useGemini}
+                    aria-label="Enable AI refinement"
+                    className={`toggle-switch cloud-toggle ${settings.useGemini ? "active" : ""}`}
                     onClick={() => updateSetting("useGemini", !settings.useGemini)}
                   />
-                </div>
+                </header>
 
-                <div className="field-row" style={{ opacity: settings.useGemini ? 1 : 0.4, pointerEvents: settings.useGemini ? 'auto' : 'none' }}>
-                  <div className="field-info">
-                    <span className="field-label">API Key</span>
-                    <span className="field-hint">
-                      <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer">
-                        Get a free key
+                <div
+                  className={`cloud-body ${settings.useGemini ? "" : "disabled"}`}
+                  aria-hidden={!settings.useGemini}
+                >
+                  <label className="engine-field">
+                    <span className="engine-field-label">API key</span>
+                    <span className="engine-field-hint">
+                      <a
+                        href="https://aistudio.google.com/app/apikey"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Get a free key from Google AI Studio →
                       </a>
                     </span>
-                  </div>
-                  <input
-                    className="form-input"
-                    type="password"
-                    value={settings.geminiApiKey}
-                    onChange={(e) => updateSetting("geminiApiKey", e.target.value)}
-                    placeholder="Enter API key"
-                  />
-                </div>
+                    <input
+                      className="form-input engine-input"
+                      type="password"
+                      value={settings.geminiApiKey}
+                      onChange={(e) => updateSetting("geminiApiKey", e.target.value)}
+                      placeholder="Paste your Gemini API key"
+                      spellCheck={false}
+                      autoComplete="off"
+                    />
+                  </label>
 
-                <div className="field-row" style={{ opacity: settings.useGemini ? 1 : 0.4, pointerEvents: settings.useGemini ? 'auto' : 'none' }}>
-                  <div className="field-info">
-                    <span className="field-label">Gemini Model</span>
-                    <span className="field-hint">
+                  <label className="engine-field">
+                    <span className="engine-field-label">Gemini model</span>
+                    <span className="engine-field-hint">
                       {geminiModels === null
-                        ? "Click 'Load models' to fetch the live list from Google"
-                        : `${geminiModels.length} available`}
+                        ? "Click Refresh to load the live model list from Google."
+                        : `${geminiModels.length} model${geminiModels.length === 1 ? "" : "s"} available.`}
                     </span>
-                  </div>
-                  <div className="status-actions">
-                    <select
-                      className="form-select"
-                      value={settings.geminiModel}
-                      onChange={(e) => updateSetting("geminiModel", e.target.value)}
-                    >
-                      {geminiModels && geminiModels.length > 0 ? (
-                        geminiModels.map((m) => (
-                          <option key={m.id} value={m.id}>
-                            {m.displayName} ({m.id})
-                          </option>
-                        ))
-                      ) : (
-                        <>
-                          <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-                          <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
-                          <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash Lite</option>
-                          <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
-                        </>
-                      )}
-                    </select>
-                    <button
-                      className="btn"
-                      onClick={() => loadGeminiModels(true)}
-                      disabled={geminiModelsLoading || !settings.geminiApiKey}
-                      title="Re-query Google for the latest model list"
-                    >
-                      {geminiModelsLoading ? "Loading…" : "Load models"}
-                    </button>
-                  </div>
-                </div>
+                    <div className="cloud-model-row">
+                      <select
+                        className="form-select engine-select"
+                        value={settings.geminiModel}
+                        onChange={(e) => updateSetting("geminiModel", e.target.value)}
+                      >
+                        {geminiModels && geminiModels.length > 0 ? (
+                          geminiModels.map((m) => (
+                            <option key={m.id} value={m.id}>
+                              {m.displayName} ({m.id})
+                            </option>
+                          ))
+                        ) : (
+                          <>
+                            <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                            <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+                            <option value="gemini-2.5-flash-lite">
+                              Gemini 2.5 Flash Lite
+                            </option>
+                            <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                          </>
+                        )}
+                      </select>
+                      <button
+                        type="button"
+                        className="engine-btn"
+                        onClick={() => loadGeminiModels(true)}
+                        disabled={geminiModelsLoading || !settings.geminiApiKey}
+                        title="Re-query Google for the latest model list"
+                      >
+                        {geminiModelsLoading ? "Loading…" : "Refresh"}
+                      </button>
+                    </div>
+                  </label>
 
-                {geminiModelsError && (
-                  <div className="error-message">{geminiModelsError}</div>
-                )}
+                  {geminiModelsError && (
+                    <div className="capture-alert" role="alert">
+                      <AlertTriangle size={16} strokeWidth={2} />
+                      <div className="capture-alert-body">
+                        <strong>Model load failed</strong>
+                        <p>{geminiModelsError}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </section>
 
-              <section
-                className="settings-section"
-                style={{ opacity: settings.useGemini ? 1 : 0.4, pointerEvents: settings.useGemini ? "auto" : "none" }}
-              >
-                <h2 className="section-header">Pipeline</h2>
-                <p className="section-description">
-                  Two-step analyze-and-adjust flow. The first pass pulls out entities and intent in the
-                  source language; the second rewrites the transcript in the target language using those
-                  facts as anchors so names and numbers stay stable.
-                </p>
+              <section className={`pipeline-card ${settings.useGemini ? "" : "disabled"}`}>
+                <header className="pipeline-head">
+                  <span className="pipeline-eyebrow">Pipeline</span>
+                  <h2 className="pipeline-title">Three-step refinement</h2>
+                  <p className="pipeline-sub">
+                    Analyze entities and intent, adjust the transcript in your target
+                    language, then review the draft before it lands in the focused window.
+                  </p>
+                </header>
 
-                <div className="field-row">
-                  <div className="field-info">
-                    <span className="field-label">Mode</span>
-                    <span className="field-hint">How to transform the transcript</span>
-                  </div>
-                  <select
-                    className="form-select"
-                    value={settings.aiMode}
-                    onChange={(e) => updateSetting("aiMode", e.target.value as AiMode)}
-                  >
-                    <option value="off">Off (single-shot polish)</option>
-                    <option value="refine">Refine (clean up, same language)</option>
-                    <option value="translate">Translate to target language</option>
-                    <option value="summarize-translate">Summarize + Translate</option>
-                  </select>
+                <div
+                  className="pipeline-mode-grid"
+                  role="radiogroup"
+                  aria-label="Pipeline mode"
+                >
+                  {PIPELINE_MODES.map((m) => {
+                    const active = settings.aiMode === m.value;
+                    return (
+                      <button
+                        key={m.value}
+                        type="button"
+                        role="radio"
+                        aria-checked={active}
+                        className={`pipeline-mode-card ${active ? "active" : ""}`}
+                        onClick={() => updateSetting("aiMode", m.value)}
+                        disabled={!settings.useGemini}
+                      >
+                        <span className="pipeline-mode-body">
+                          <span className="pipeline-mode-title">{m.label}</span>
+                          <span className="pipeline-mode-hint">{m.hint}</span>
+                        </span>
+                        <span
+                          className={`pipeline-mode-radio ${active ? "on" : ""}`}
+                          aria-hidden
+                        />
+                      </button>
+                    );
+                  })}
                 </div>
 
-                <div className="field-row">
-                  <div className="field-info">
-                    <span className="field-label">Output Language</span>
-                    <span className="field-hint">Target language for refined text</span>
-                  </div>
+                <label className="engine-field pipeline-lang">
+                  <span className="engine-field-label">Output language</span>
+                  <span className="engine-field-hint">
+                    Target language the refined text will be delivered in.
+                  </span>
                   <select
-                    className="form-select"
+                    className="form-select engine-select"
                     value={settings.uiLanguage}
                     onChange={(e) => updateSetting("uiLanguage", e.target.value)}
+                    disabled={!settings.useGemini}
                   >
                     {UI_LANGUAGES.map((l) => (
-                      <option key={l.code} value={l.code}>{l.label}</option>
+                      <option key={l.code} value={l.code}>
+                        {l.label}
+                      </option>
                     ))}
                   </select>
-                </div>
+                </label>
               </section>
             </div>
           )}
@@ -858,11 +1012,15 @@ export default function SettingsView() {
           {activeTab === "formatting" && <FormattingView />}
 
           {activeTab === "history" && (
-            <div className="settings-panel" style={{ maxWidth: "100%" }}>
-              <HistoryView entries={history} onClear={clearHistory} onCopy={handleCopy} onUpdate={updateEntry} onDelete={deleteEntry} />
-              <div style={{ marginTop: "24px", borderTop: "1px solid var(--border)", paddingTop: "24px" }}>
-                <ClipboardHistoryPanel />
-              </div>
+            <div className="settings-panel settings-panel--transcript">
+              <HistoryView
+                entries={history}
+                onClear={clearHistory}
+                onCopy={handleCopy}
+                onUpdate={updateEntry}
+                onDelete={deleteEntry}
+              />
+              <ClipboardHistoryPanel />
             </div>
           )}
 

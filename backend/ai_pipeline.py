@@ -1,17 +1,25 @@
 """
-Gemini two-step refinement pipeline.
+Gemini three-step refinement pipeline.
 
 Step 1 — analyze: extract intent, entities, and a brief neutral-language
 summary of the raw transcript. Runs in the source language.
 
 Step 2 — adjust: using the analysis as grounding, rewrite the transcript
 into the target language in the requested mode (refine / translate /
-summarize-translate), honoring an optional user template prompt.
+summarize-translate), honoring an optional user template prompt. Produces
+a draft.
 
-Two passes are used instead of one because we want the translation/summary
-step to be constrained by structured facts pulled from the original — this
-keeps proper nouns, numbers, and named entities stable across languages
-even when the translator would otherwise "smooth them out."
+Step 3 — review: the model sees the draft plus the original transcript and
+analysis, and commits to a FINAL version. Only the reviewed text reaches
+the caller; the draft is discarded. If the review call fails, the pipeline
+falls back to the draft so the user never loses the refinement.
+
+Analyze / adjust are split because a single prompt asked to translate AND
+preserve every entity tends to smooth entities out. Binding them to a
+structured analysis first keeps proper nouns, numbers, and named entities
+stable across languages. Review is a separate pass because the same model
+evaluating its own draft catches language drift, lost nuance, and stilted
+phrasing that survive the adjust step.
 
 Gemini API docs: https://ai.google.dev/api/generate-content
 ListModels:      https://ai.google.dev/api/models#method:-models.list
@@ -21,6 +29,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 import time
 from typing import Any, AsyncIterator
 
@@ -135,6 +144,50 @@ def _extract_text(resp: dict[str, Any]) -> str:
     return "".join(p.get("text", "") for p in parts).strip()
 
 
+# Gemma-4 instruct models don't honor "plain text only" and dump their
+# whole chain-of-thought before the final answer. Lines like
+#   *   "uhh, uhm" -> Remove (disfluencies).
+#   *   Preserved meaning? Yes.
+# end with the clean sentence glued to the last bullet. Strip everything
+# up to (and including) the last reasoning marker so the clipboard gets
+# only the final prose. If no markers are present, return input unchanged.
+_REASONING_MARKERS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"->"),                     # "uhh -> Remove"
+    re.compile(r"^\s*\*\s", re.MULTILINE), # bullet lines
+    re.compile(r"\?\s*Yes\."),             # "Preserved meaning? Yes."
+    re.compile(r"\?\s*No\."),
+)
+
+
+def _strip_reasoning_scratchpad(text: str) -> str:
+    if not text:
+        return text
+    # Find the LAST position where a reasoning marker appears.
+    last_end = -1
+    for pat in _REASONING_MARKERS:
+        for m in pat.finditer(text):
+            if m.end() > last_end:
+                last_end = m.end()
+    if last_end < 0:
+        return text
+    # Cut at the end of the last reasoning line (next newline), then take
+    # whatever prose remains. If nothing remains, fall back to original.
+    tail = text[last_end:]
+    newline_idx = tail.find("\n")
+    remainder = tail[newline_idx + 1:] if newline_idx >= 0 else ""
+    # Sometimes the clean sentence is on the SAME line, right after the
+    # last bullet (no newline). In that case `tail` itself contains it,
+    # but starts mid-sentence. Split at the last ". " in the tail and take
+    # what follows.
+    if not remainder.strip():
+        # No trailing newline — look for last sentence-boundary in tail.
+        m = re.search(r"[.!?]\s+([A-Z].+)$", tail, re.DOTALL)
+        if m:
+            remainder = m.group(1)
+    cleaned = remainder.strip()
+    return cleaned if cleaned else text
+
+
 async def _gemini_generate(
     client: httpx.AsyncClient,
     api_key: str,
@@ -192,7 +245,159 @@ async def adjust(
     body = _build_adjust_prompt(text, analysis, target_lang, mode, template_prompt)
     async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
         resp = await _gemini_generate(client, api_key, model, body)
-    return _extract_text(resp)
+    return _strip_reasoning_scratchpad(_extract_text(resp))
+
+
+def _build_review_prompt(
+    original_transcript: str,
+    draft: str,
+    analysis: dict[str, Any],
+    target_lang: str,
+    mode: str,
+    template_prompt: str | None,
+) -> dict[str, Any]:
+    """
+    Review-pass prompt. The model sees the adjust-pass draft alongside the
+    original transcript and the structured analysis, and is asked to produce
+    the FINAL version. This is the text that reaches the clipboard / focused
+    window. Keeps the same target language, mode, and template constraints as
+    the adjust pass so drift can't flip meaning or language.
+    """
+    system = (
+        "You are a senior editor performing a final review pass on a "
+        "post-processed transcript. You receive the original raw transcript, "
+        "a structured analysis, and a DRAFT produced by an earlier pass. Your "
+        "job: return the single best FINAL version. Keep ALL meaning and every "
+        "entity from the analysis. Fix anything the draft got wrong (wrong "
+        "word choice, lost nuance, stilted phrasing, language drift, hallucinated "
+        "content). If the draft is already perfect, return it as-is. Output "
+        "PLAIN TEXT only — no preamble, no commentary, no markdown fences."
+    )
+
+    template_block = (
+        f"\n\nUser style/context template (honor when relevant):\n\"\"\"\n{template_prompt}\n\"\"\""
+        if template_prompt
+        else ""
+    )
+
+    user = (
+        f"Target language: {target_lang}\n"
+        f"Mode: {mode}{template_block}\n\n"
+        f"Analysis (JSON):\n{json.dumps(analysis, ensure_ascii=False)}\n\n"
+        f"Original transcript:\n\"\"\"\n{original_transcript}\n\"\"\"\n\n"
+        f"Draft to review:\n\"\"\"\n{draft}\n\"\"\"\n\n"
+        "Output the final text now."
+    )
+
+    return {
+        "systemInstruction": {"parts": [{"text": system}]},
+        "contents": [{"role": "user", "parts": [{"text": user}]}],
+        "generationConfig": {
+            "temperature": 0.3,
+            "responseMimeType": "text/plain",
+        },
+    }
+
+
+async def review(
+    original_transcript: str,
+    draft: str,
+    analysis: dict[str, Any],
+    target_lang: str,
+    mode: str,
+    template_prompt: str | None,
+    api_key: str,
+    model: str = DEFAULT_MODEL,
+) -> str:
+    body = _build_review_prompt(
+        original_transcript, draft, analysis, target_lang, mode, template_prompt
+    )
+    async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
+        resp = await _gemini_generate(client, api_key, model, body)
+    return _strip_reasoning_scratchpad(_extract_text(resp))
+
+
+def _build_simple_review_prompt(
+    original: str,
+    draft: str,
+    template_prompt: str | None,
+    kind: str,
+) -> dict[str, Any]:
+    """
+    Review prompt for the bypass paths (agent + legacy polish) that skip
+    analyze / adjust. No structured analysis is available here, so the model
+    only sees the original and the draft plus the user template. `kind` is
+    "agent" (draft is a persona response) or "polish" (draft is a lightly
+    cleaned transcript); we nudge the system prompt accordingly so review
+    doesn't flatten a valid agent reply into a transcript.
+    """
+    if kind == "agent":
+        role_clause = (
+            "The draft is an assistant response produced by an AI persona "
+            "acting on the user's dictated request. Preserve the persona's "
+            "voice and the answer's substance. Fix clarity, flow, and any "
+            "obvious mistakes; do not re-answer the question differently."
+        )
+    else:
+        role_clause = (
+            "The draft is a lightly polished version of the user's dictation. "
+            "Preserve the speaker's meaning and every entity verbatim. Tighten "
+            "punctuation, fix disfluencies, and improve flow without adding or "
+            "removing content."
+        )
+
+    system = (
+        "You are a senior editor performing a final review pass. You receive "
+        "the original input and a DRAFT. Return the single best FINAL version. "
+        f"{role_clause} If the draft is already perfect, return it as-is. "
+        "Output PLAIN TEXT only — no preamble, no commentary, no markdown fences."
+    )
+
+    template_block = (
+        f"\n\nUser style/context template (honor when relevant):\n\"\"\"\n{template_prompt}\n\"\"\""
+        if template_prompt
+        else ""
+    )
+
+    user = (
+        f"{template_block}\n\n"
+        f"Original input:\n\"\"\"\n{original}\n\"\"\"\n\n"
+        f"Draft to review:\n\"\"\"\n{draft}\n\"\"\"\n\n"
+        "Output the final text now."
+    )
+
+    return {
+        "systemInstruction": {"parts": [{"text": system}]},
+        "contents": [{"role": "user", "parts": [{"text": user}]}],
+        "generationConfig": {
+            "temperature": 0.3,
+            "responseMimeType": "text/plain",
+        },
+    }
+
+
+async def review_simple(
+    original: str,
+    draft: str,
+    api_key: str,
+    model: str = DEFAULT_MODEL,
+    template_prompt: str | None = None,
+    kind: str = "polish",
+) -> str:
+    """
+    Standalone review pass for branches that skip the three-step pipeline
+    (agent templates, legacy single-call polish). Takes the first-pass output
+    as `draft` and the input that produced it as `original`. Returns the
+    reviewed final. Callers should fall back to `draft` on exception so a
+    failing review can never erase the first-pass result.
+    """
+    if not draft.strip():
+        return draft
+    body = _build_simple_review_prompt(original, draft, template_prompt, kind)
+    async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
+        resp = await _gemini_generate(client, api_key, model, body)
+    reviewed = _strip_reasoning_scratchpad(_extract_text(resp))
+    return reviewed or draft
 
 
 async def refine_stream(
@@ -205,13 +410,18 @@ async def refine_stream(
     model: str = DEFAULT_MODEL,
 ) -> AsyncIterator[dict[str, Any]]:
     """
-    Async generator yielding SSE-shaped events:
+    Async generator yielding SSE-shaped events for the three-step pipeline:
       {"event": "analyzing"}
       {"event": "analysis", "data": {...}}
       {"event": "adjusting"}
-      {"event": "done", "data": {"text": "..."}}
+      {"event": "reviewing"}
+      {"event": "done", "data": {"text": "...", "analysis": {...}}}
       {"event": "error", "data": {"message": "..."}}
-    The caller formats these into `event: X\\ndata: Y\\n\\n` frames.
+
+    The third Gemini call (`review`) reads the adjust-pass draft and commits
+    to a FINAL version. The draft is NOT returned — only the reviewed text
+    reaches the caller. If the review call fails, fall back to the draft so
+    the user never loses the refinement they already paid for.
     """
     try:
         yield {"event": "analyzing"}
@@ -219,7 +429,19 @@ async def refine_stream(
         yield {"event": "analysis", "data": analysis}
 
         yield {"event": "adjusting"}
-        final = await adjust(text, analysis, target_lang, mode, template_prompt, api_key, model)
+        draft = await adjust(text, analysis, target_lang, mode, template_prompt, api_key, model)
+
+        yield {"event": "reviewing"}
+        try:
+            final = await review(
+                text, draft, analysis, target_lang, mode, template_prompt, api_key, model
+            )
+            if not final.strip():
+                final = draft
+        except Exception:
+            log.exception("Review pass failed; falling back to draft")
+            final = draft
+
         yield {"event": "done", "data": {"text": final, "analysis": analysis}}
     except Exception as e:
         log.exception("AI pipeline failed")

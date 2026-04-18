@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Info, RotateCcw, Keyboard, Sparkles } from "lucide-react";
+import { Info, RotateCcw, Keyboard } from "lucide-react";
 import { AppSettings, useSettings } from "../hooks/useSettings";
 
 const MODIFIER_KEYS = new Set(["Control", "Alt", "Shift", "Meta"]);
@@ -232,17 +232,15 @@ export default function ShortcutsView() {
   return (
     <div className="shortcuts-view feature-view feature-view--wide">
       <header className="feature-hero">
-        <span className="feature-medallion tone-graphite" aria-hidden>
+        <span className="feature-medallion tone-cyan" aria-hidden>
           <Keyboard />
         </span>
         <div className="feature-hero-body">
-          <span className="feature-hero-eyebrow">
-            <Sparkles size={12} strokeWidth={2.5} /> Controls
-          </span>
-          <h1 className="feature-hero-title">Keyboard Shortcuts</h1>
+          <span className="feature-hero-eyebrow">Shortcuts</span>
+          <h1 className="feature-hero-title">Keyboard shortcuts</h1>
           <p className="feature-hero-description">
-            View every hotkey in one place and re-bind the ones you use most.
-            Click a configurable row, then press the combination you want.
+            Every hotkey in one place — rebind the ones you use most. Click a
+            configurable row, then press the combination you want.
           </p>
           <div className="feature-hero-meta">
             <span className="feature-chip accent">

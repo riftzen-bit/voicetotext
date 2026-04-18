@@ -6,7 +6,6 @@ import {
   Check,
   X,
   Search,
-  Sparkles,
   Inbox,
 } from "lucide-react";
 import type { TranscriptionEntry } from "../hooks/useTranscription";
@@ -234,7 +233,7 @@ function HistoryItem({ entry, now, onCopy, onUpdate, onDelete }: HistoryItemProp
           <>
             <span className="history-dot">·</span>
             <span className="history-refined">
-              <Sparkles size={11} strokeWidth={2.25} />
+              <Check size={11} strokeWidth={2.25} />
               Refined
             </span>
           </>

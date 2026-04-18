@@ -1,4 +1,13 @@
 import { useState, useMemo } from "react";
+import {
+  Copy,
+  Check,
+  ArrowRight,
+  Trash2,
+  Search,
+  X,
+  Inbox,
+} from "lucide-react";
 import { useClipboardHistory, ClipboardEntry } from "../hooks/useClipboardHistory";
 import "../styles/clipboard-history.css";
 
@@ -7,34 +16,19 @@ function formatTimestamp(ts: number): string {
   const now = new Date();
   const diff = now.getTime() - ts;
 
-  // Less than a minute ago
-  if (diff < 60000) {
-    return "Just now";
-  }
+  if (diff < 60000) return "Just now";
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
 
-  // Less than an hour ago
-  if (diff < 3600000) {
-    const minutes = Math.floor(diff / 60000);
-    return `${minutes}m ago`;
-  }
-
-  // Less than a day ago
-  if (diff < 86400000) {
-    const hours = Math.floor(diff / 3600000);
-    return `${hours}h ago`;
-  }
-
-  // Same year
   if (date.getFullYear() === now.getFullYear()) {
     return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
   }
-
   return date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
-function truncateText(text: string, maxLength: number = 100): string {
+function truncateText(text: string, maxLength: number = 120): string {
   if (text.length <= maxLength) return text;
-  return text.slice(0, maxLength).trim() + "...";
+  return text.slice(0, maxLength).trim() + "…";
 }
 
 interface ClipboardEntryItemProps {
@@ -42,67 +36,69 @@ interface ClipboardEntryItemProps {
   onCopy: (text: string) => void;
   onPaste: (text: string) => void;
   onDelete: (id: string) => void;
+  justCopied: boolean;
 }
 
-function ClipboardEntryItem({ entry, onCopy, onPaste, onDelete }: ClipboardEntryItemProps) {
+function ClipboardEntryItem({ entry, onCopy, onPaste, onDelete, justCopied }: ClipboardEntryItemProps) {
   const [expanded, setExpanded] = useState(false);
-  const isLong = entry.text.length > 100;
+  const isLong = entry.text.length > 120;
 
   return (
-    <div className="clipboard-entry">
-      <div className="clipboard-entry-header">
+    <article className="clipboard-entry">
+      <header className="clipboard-entry-header">
         <span className="clipboard-timestamp">{formatTimestamp(entry.timestamp)}</span>
         <span className={`clipboard-source ${entry.source}`}>
           {entry.source === "transcription" ? "Voice" : "Manual"}
         </span>
         {entry.template && (
           <span className="clipboard-template" title={entry.template}>
-            Template
+            {entry.template}
           </span>
         )}
-      </div>
-      <div className="clipboard-text" onClick={() => isLong && setExpanded(!expanded)}>
-        {expanded ? entry.text : truncateText(entry.text)}
+        <div className="clipboard-actions">
+          <button
+            type="button"
+            className={`clipboard-btn icon ${justCopied ? "ok" : ""}`}
+            onClick={() => onCopy(entry.text)}
+            title="Copy to clipboard"
+            aria-label="Copy"
+          >
+            {justCopied ? <Check size={14} strokeWidth={2.5} /> : <Copy size={14} strokeWidth={2} />}
+          </button>
+          <button
+            type="button"
+            className="clipboard-btn icon primary"
+            onClick={() => onPaste(entry.text)}
+            title="Paste to focused window"
+            aria-label="Paste"
+          >
+            <ArrowRight size={14} strokeWidth={2} />
+          </button>
+          <button
+            type="button"
+            className="clipboard-btn icon danger"
+            onClick={() => onDelete(entry.id)}
+            title="Remove from history"
+            aria-label="Delete"
+          >
+            <Trash2 size={14} strokeWidth={2} />
+          </button>
+        </div>
+      </header>
+
+      <div className="clipboard-text">
+        {expanded || !isLong ? entry.text : truncateText(entry.text)}
         {isLong && (
-          <button className="expand-btn" onClick={() => setExpanded(!expanded)}>
+          <button
+            type="button"
+            className="expand-btn"
+            onClick={() => setExpanded(!expanded)}
+          >
             {expanded ? "Show less" : "Show more"}
           </button>
         )}
       </div>
-      <div className="clipboard-actions">
-        <button
-          className="clipboard-btn"
-          onClick={() => onCopy(entry.text)}
-          title="Copy to clipboard"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-          </svg>
-          Copy
-        </button>
-        <button
-          className="clipboard-btn primary"
-          onClick={() => onPaste(entry.text)}
-          title="Paste to active window"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
-            <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
-          </svg>
-          Paste
-        </button>
-        <button
-          className="clipboard-btn danger"
-          onClick={() => onDelete(entry.id)}
-          title="Remove from history"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-          </svg>
-        </button>
-      </div>
-    </div>
+    </article>
   );
 }
 
@@ -119,7 +115,6 @@ export default function ClipboardHistoryPanel() {
   const handleCopy = async (text: string) => {
     const success = await copyToClipboard(text);
     if (success) {
-      // Show brief feedback
       const entry = history.find((e) => e.text === text);
       if (entry) {
         setCopiedId(entry.id);
@@ -133,30 +128,45 @@ export default function ClipboardHistoryPanel() {
   };
 
   return (
-    <div className="clipboard-history-panel">
-      <div className="clipboard-header">
-        <h3>Clipboard History</h3>
+    <section className="clipboard-history-panel">
+      <header className="clipboard-header">
+        <div className="clipboard-header-titles">
+          <h3 className="clipboard-title">
+            Clipboard History
+            {history.length > 0 && (
+              <span className="clipboard-count">{history.length}</span>
+            )}
+          </h3>
+          <p className="clipboard-sub">
+            Recent copies and transcripts. Paste straight back into the focused window.
+          </p>
+        </div>
         {history.length > 0 && (
-          <button className="clear-btn" onClick={clearHistory}>
-            Clear All
+          <button type="button" className="clipboard-clear-btn" onClick={clearHistory}>
+            <Trash2 size={13} strokeWidth={2} />
+            Clear all
           </button>
         )}
-      </div>
+      </header>
 
       {history.length > 5 && (
         <div className="clipboard-search">
+          <Search size={14} strokeWidth={2} className="clipboard-search-icon" />
           <input
-            type="text"
-            placeholder="Search history..."
+            type="search"
+            placeholder="Search clipboard"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="search-input"
           />
           {searchQuery && (
-            <button className="clear-search" onClick={() => setSearchQuery("")}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M18 6L6 18M6 6l12 12" />
-              </svg>
+            <button
+              type="button"
+              className="clear-search"
+              onClick={() => setSearchQuery("")}
+              aria-label="Clear search"
+            >
+              <X size={12} strokeWidth={2} />
             </button>
           )}
         </div>
@@ -165,12 +175,18 @@ export default function ClipboardHistoryPanel() {
       <div className="clipboard-list">
         {filteredHistory.length === 0 ? (
           <div className="clipboard-empty">
+            <div className="clipboard-empty-icon" aria-hidden>
+              <Inbox size={24} strokeWidth={1.75} />
+            </div>
             {searchQuery ? (
-              <p>No entries match your search.</p>
+              <>
+                <p className="clipboard-empty-title">No matches</p>
+                <span className="hint">Try a different search or clear the box.</span>
+              </>
             ) : (
               <>
-                <p>No clipboard history yet.</p>
-                <span className="hint">Voice transcriptions will appear here.</span>
+                <p className="clipboard-empty-title">Nothing on the clipboard yet</p>
+                <span className="hint">Voice transcriptions and copies will appear here.</span>
               </>
             )}
           </div>
@@ -182,6 +198,7 @@ export default function ClipboardHistoryPanel() {
               onCopy={handleCopy}
               onPaste={handlePaste}
               onDelete={removeEntry}
+              justCopied={copiedId === entry.id}
             />
           ))
         )}
@@ -190,10 +207,10 @@ export default function ClipboardHistoryPanel() {
       {history.length > 0 && (
         <div className="clipboard-footer">
           <span className="entry-count">
-            {filteredHistory.length} of {history.length} entries
+            Showing {filteredHistory.length} of {history.length}
           </span>
         </div>
       )}
-    </div>
+    </section>
   );
 }
