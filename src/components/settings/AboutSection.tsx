@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { getApi } from "../../lib/ipc";
 
-const APP_VERSION = "0.3.2";
+const APP_VERSION = "0.4.0";
 
 export default function AboutSection() {
   const [backendStatus, setBackendStatus] = useState("unknown");
