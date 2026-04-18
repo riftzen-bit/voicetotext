@@ -76,15 +76,21 @@ export default function RefinementSection() {
             </div>
           </Row>
 
-          <Row label="Model">
+          <Row label="Model" hint="Pro is the largest and most accurate; Flash is faster and cheaper.">
             <select
               className="select-input"
               value={settings.geminiModel}
               onChange={(e) => updateSetting("geminiModel", e.target.value)}
             >
-              <option value="gemini-2.5-flash">gemini-2.5-flash</option>
-              <option value="gemini-2.5-pro">gemini-2.5-pro</option>
-              <option value="gemini-2.0-flash">gemini-2.0-flash</option>
+              <optgroup label="Gemini 2.5">
+                <option value="gemini-2.5-pro">gemini-2.5-pro — biggest, highest quality</option>
+                <option value="gemini-2.5-flash">gemini-2.5-flash — balanced (recommended)</option>
+                <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite — fastest</option>
+              </optgroup>
+              <optgroup label="Gemini 2.0">
+                <option value="gemini-2.0-flash">gemini-2.0-flash</option>
+                <option value="gemini-2.0-flash-lite">gemini-2.0-flash-lite</option>
+              </optgroup>
             </select>
           </Row>
 
